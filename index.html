@@ -870,7 +870,17 @@ function deleteLiq(id){
     }catch(e){}
   }
 }
-function editLiq(id){
+function borrarMesLiq(mes){
+  if(!confirm('¿Eliminar TODAS las liquidaciones de '+mes+'? Esta acción no se puede deshacer.'))return;
+  const db=loadData();
+  const aEliminar=db.liquidaciones.filter(l=>l.mes===mes).map(l=>l.id);
+  db.liquidaciones=db.liquidaciones.filter(l=>l.mes!==mes);
+  localStorage.setItem('mosaa_liquidaciones',JSON.stringify(db.liquidaciones));
+  if(window.FS){aEliminar.forEach(id=>window.FS.del('mosaa_liquidaciones',id).catch(()=>{}));}
+  window._liqFltMes='';
+  showToast('Liquidaciones de '+mes+' eliminadas ✓');
+  renderSection('liquidaciones');
+}
   const db=loadData();const l=db.liquidaciones.find(x=>x.id===id);if(!l)return;
   openModal('liquidacion','Editar liquidación',id);
   setTimeout(()=>{
@@ -892,6 +902,15 @@ function rLiqs(mc){
   const db=loadData();
   let rows=[];
   db.profesores.forEach(p=>{p.cursos.forEach(cid=>{const c=getCursos().find(x=>x.id===cid);if(!c)return;const al=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length;const cobro=Math.round(c.cuota*(p.pct/100));rows.push({prof:p,curso:c,al,cobro,total:cobro*al});});});
+
+  // opciones de meses únicos para el filtro
+  const mesesUnicos=[...new Set(db.liquidaciones.map(l=>l.mes))].sort((a,b)=>b.localeCompare(a));
+  const fltMes=window._liqFltMes||'';
+  const fltProf=window._liqFltProf||'';
+  let liqs=db.liquidaciones;
+  if(fltMes)liqs=liqs.filter(l=>l.mes===fltMes);
+  if(fltProf)liqs=liqs.filter(l=>l.profesorId===fltProf);
+
   mc.innerHTML=
     '<div style="background:linear-gradient(135deg,var(--b),var(--bm));border-radius:12px;padding:18px;color:white;margin-bottom:14px;">'+
     '<div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Calculadora rápida</div>'+
@@ -901,12 +920,40 @@ function rLiqs(mc){
     '<div style="display:flex;flex-direction:column;gap:4px;"><label style="font-size:10.5px;opacity:.7;">%</label><select id="cp" onchange="calcLiq()" style="padding:7px 10px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:white;font-family:var(--font);font-size:13px;"><option value="50">50%</option><option value="40">40%</option></select></div>'+
     '<div><div style="font-size:10.5px;opacity:.7;margin-bottom:4px;">Total</div><div style="font-size:24px;font-weight:700;" id="cr">$60.000</div><div style="font-size:10.5px;opacity:.6;" id="crs">20 × $3.000</div></div>'+
     '</div></div>'+
-    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-cash"></i>Liquidaciones del mes</div></div>'+
-    (db.liquidaciones.length?
+
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-cash"></i>Historial de liquidaciones</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+    // filtro por mes
+    '<select class="flt" id="flt-liq-mes" onchange="window._liqFltMes=this.value;renderSection(\'liquidaciones\')">'+
+    '<option value="">Todos los meses</option>'+
+    mesesUnicos.map(m=>'<option value="'+m+'" '+(m===fltMes?'selected':'')+'>'+m+'</option>').join('')+
+    '</select>'+
+    // filtro por docente
+    '<select class="flt" id="flt-liq-prof" onchange="window._liqFltProf=this.value;renderSection(\'liquidaciones\')">'+
+    '<option value="">Todos los docentes</option>'+
+    db.profesores.map(p=>'<option value="'+p.id+'" '+(p.id===fltProf?'selected':'')+'>'+p.nombre+'</option>').join('')+
+    '</select>'+
+    // borrar mes completo
+    (fltMes?'<button class="btn btn-sm" style="color:var(--c);border-color:var(--c);" onclick="borrarMesLiq(\''+fltMes+'\')"><i class="ti ti-trash"></i>Borrar mes</button>':'')+
+    '</div></div>'+
+
+    (liqs.length?
       '<table><thead><tr><th>Docente</th><th>Mes</th><th>Alumnos</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>'+
-      db.liquidaciones.map(l=>'<tr><td><div class="rn"><div class="av '+avCls(l.profesorNombre)+'">'+initials(l.profesorNombre)+'</div>'+l.profesorNombre+'</div></td><td>'+l.mes+'</td><td style="text-align:center;font-weight:600">'+l.totalAlumnos+'</td><td style="font-weight:700;color:var(--td)">'+pesos(l.monto)+'</td><td>'+pillE(l.estado)+'</td><td style="display:flex;gap:3px;">'+(l.estado==='Pendiente'?'<button class="btn btn-t btn-sm" onclick="pagarLiq(\''+l.id+'\')"><i class="ti ti-cash"></i>Pagar</button>':'')+'<button class="btn btn-sm" onclick="verRLiq(\''+l.id+'\')"><i class="ti ti-printer"></i></button>'+(l.estado!=='Pagado'?'<button class="btn btn-sm" onclick="editLiq(\''+l.id+'\')" title="Editar"><i class="ti ti-pencil"></i></button>':'')+'<button class="btn btn-sm" style="color:#e74c3c;" onclick="deleteLiq(\''+l.id+'\')" title="Eliminar"><i class="ti ti-trash"></i></button></td></tr>').join('')+
+      liqs.map(l=>
+        '<tr><td><div class="rn"><div class="av '+avCls(l.profesorNombre)+'">'+initials(l.profesorNombre)+'</div>'+l.profesorNombre+'</div></td>'+
+        '<td>'+l.mes+'</td>'+
+        '<td style="text-align:center;font-weight:600">'+l.totalAlumnos+'</td>'+
+        '<td style="font-weight:700;color:var(--td)">'+pesos(l.monto)+'</td>'+
+        '<td>'+pillE(l.estado)+'</td>'+
+        '<td style="display:flex;gap:3px;">'+
+          (l.estado==='Pendiente'?'<button class="btn btn-t btn-sm" onclick="pagarLiq(\''+l.id+'\')"><i class="ti ti-cash"></i>Pagar</button>':'')+
+          '<button class="btn btn-sm" onclick="verRLiq(\''+l.id+'\')"><i class="ti ti-printer"></i></button>'+
+          (l.estado!=='Pagado'?'<button class="btn btn-sm" onclick="editLiq(\''+l.id+'\')" title="Editar"><i class="ti ti-pencil"></i></button>':'')+
+          '<button class="btn btn-sm" style="color:#e74c3c;" onclick="deleteLiq(\''+l.id+'\')" title="Eliminar"><i class="ti ti-trash"></i></button>'+
+        '</td></tr>'
+      ).join('')+
       '</tbody></table>':
-      '<div style="text-align:center;padding:30px;color:var(--mt)">Sin liquidaciones</div>')+
+      '<div style="text-align:center;padding:30px;color:var(--mt)">'+(fltMes||fltProf?'Sin liquidaciones para este filtro':'Sin liquidaciones registradas')+'</div>')+
     '</div>'+
     '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-calculator"></i>Detalle por docente</div></div>'+
     (rows.length?
@@ -1551,11 +1598,21 @@ function rMisCuotas(mc){
 async function subirComp(tipo,id,input){
   const file=input.files[0];if(!file)return;
   if(file.size>5*1024*1024){showToast('Archivo muy grande (máx 5MB)','err');return;}
-  showToast('Subiendo comprobante...','warn');
+  showToast('Procesando comprobante...','warn');
   try{
     let url;
-    if(window.FS){url=await window.FS.uploadFile('comprobantes/'+tipo+'_'+id+'_'+Date.now(),file);}
-    else{url=URL.createObjectURL(file);}
+    if(window.FS){
+      // Firebase disponible: subir al storage
+      url=await window.FS.uploadFile('comprobantes/'+tipo+'_'+id+'_'+Date.now(),file);
+    } else {
+      // Sin Firebase: convertir a base64 para que persista en localStorage
+      url=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=e=>resolve(e.target.result);
+        reader.onerror=reject;
+        reader.readAsDataURL(file);
+      });
+    }
     const db=loadData();
     if(tipo==='insc'){
       const idx=db.inscripciones.findIndex(i=>i.id===id);
@@ -1563,7 +1620,7 @@ async function subirComp(tipo,id,input){
         db.inscripciones[idx].comprobante=url;
         db.inscripciones[idx].comprobanteNombre=file.name;
         db.inscripciones[idx].comprobanteFecha=hoy();
-        if(db.inscripciones[idx].estado==='Pendiente')db.inscripciones[idx].estado='En revisión';
+        db.inscripciones[idx].estado='En revisión';
         saveKey('mosaa_inscripciones',db.inscripciones);
       }
     } else {
@@ -1579,7 +1636,7 @@ async function subirComp(tipo,id,input){
     addAct('Comprobante enviado — '+currentUser.nombre,tipo==='insc'?'Inscripción · Pendiente de revisión':'Cuota · Pendiente de revisión','b');
     showToast('Comprobante enviado ✓ — Quedará en revisión hasta que el admin lo apruebe');
     renderSection(currentSec);
-  }catch(e){showToast('Error al subir el archivo','err');}
+  }catch(e){showToast('Error al procesar el archivo — intentá con una imagen más pequeña','err');}
 }
 function rMisCerts(mc){
   if(!currentUser||currentUser.role!=='alumno')return;
@@ -1833,7 +1890,7 @@ async function ipNext(){
     if(!ipData.pendingFile&&!ipData.comprobante){const av=document.getElementById('comp-aviso');if(av)av.style.display='block';showToast('Debés adjuntar el comprobante de pago para continuar','err');return;}
     if(ipData.pendingFile){
       const btn=document.getElementById('ip-next');if(btn)btn.disabled=true;
-      showToast('Subiendo comprobante...','warn');
+      showToast('Procesando comprobante...','warn');
       try{
         let url;
         if(window.FS){
@@ -1841,13 +1898,20 @@ async function ipNext(){
           const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000));
           url=await Promise.race([uploadPromise,timeoutPromise]);
         } else {
-          url='pendiente_'+ipData.dni+'_'+Date.now();
+          // Sin Firebase: convertir a base64 para que persista
+          url=await new Promise((resolve,reject)=>{
+            const reader=new FileReader();
+            reader.onload=e=>resolve(e.target.result);
+            reader.onerror=reject;
+            reader.readAsDataURL(ipData.pendingFile);
+          });
         }
         ipData.comprobante=url;
         showToast('Comprobante adjuntado ✓','ok');
       }catch(e){
-        ipData.comprobante='pendiente_'+ipData.dni+'_'+(ipData.pendingFile?ipData.pendingFile.name:'');
-        showToast('Comprobante registrado','warn');
+        showToast('Error al procesar el comprobante — intentá con una imagen más pequeña','err');
+        if(btn)btn.disabled=false;
+        return;
       }
       if(btn)btn.disabled=false;
     }
