@@ -6,6 +6,7 @@
 <title>MOSAA — Plataforma de Gestión</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onload="window.XLSX_LIB=XLSX"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc }
@@ -393,7 +394,7 @@ function saveKey(k,a){
 async function pullFB(){
   if(!window.FS)return;setSI('syncing');
   try{
-    const cols=['mosaa_alumnos','mosaa_profesores','mosaa_inscripciones','mosaa_cuotas','mosaa_egresos','mosaa_certs','mosaa_consultas','mosaa_actividad','mosaa_solicitudes','mosaa_liquidaciones'];
+    const cols=['mosaa_alumnos','mosaa_profesores','mosaa_inscripciones','mosaa_cuotas','mosaa_egresos','mosaa_certs','mosaa_consultas','mosaa_actividad','mosaa_solicitudes','mosaa_liquidaciones','mosaa_asistencia','mosaa_contactos'];
     for(const col of cols){const docs=await window.FS.getAll(col);if(docs.length>0)localStorage.setItem(col,JSON.stringify(docs));}
     const cfg=await window.FS.get('mosaa_config','precios');
     if(cfg){if(cfg.ins_valor)localStorage.setItem('mosaa_ins_valor',cfg.ins_valor);if(cfg.cursos)localStorage.setItem('mosaa_cursos',JSON.stringify(cfg.cursos));}
@@ -493,11 +494,11 @@ function buildNav(role){
         {s:'liquidaciones',i:'ti-cash',l:'Liquidaciones docentes'},
         {s:'egresos',i:'ti-receipt-2',l:'Egresos'},
       ]},
-      {g:'Académico',items:[{s:'certificaciones',i:'ti-certificate',l:'Certificaciones'},{s:'consultas',i:'ti-message-circle',l:'Consultas',b:'nb-cons'}]},
-      {g:'Configuración',items:[{s:'precios',i:'ti-settings',l:'Precios de cuotas'},{s:'estados',i:'ti-chart-pie',l:'Estados'}]},
+      {g:'Académico',items:[{s:'cursos',i:'ti-school',l:'Cursos y Talleres'},{s:'asistencia',i:'ti-calendar-check',l:'Asistencia'},{s:'certificaciones',i:'ti-certificate',l:'Certificaciones'},{s:'consultas',i:'ti-message-circle',l:'Consultas',b:'nb-cons'}]},
+      {g:'Configuración',items:[{s:'reportes',i:'ti-file-spreadsheet',l:'Exportar reportes'},{s:'precios',i:'ti-settings',l:'Precios de cuotas'},{s:'estados',i:'ti-chart-pie',l:'Estados'}]},
     ],
     alumno:[{g:'Mi cuenta',items:[{s:'mi-cuenta',i:'ti-user-circle',l:'Mi cuenta'},{s:'mis-cuotas',i:'ti-credit-card',l:'Mis cuotas'},{s:'mis-certs',i:'ti-certificate',l:'Mis certificados'}]}],
-    profesor:[{g:'Mi panel',items:[{s:'mi-panel',i:'ti-layout-dashboard',l:'Mi panel'},{s:'mis-cursos',i:'ti-school',l:'Mis cursos'},{s:'mi-liquidacion',i:'ti-cash',l:'Mi liquidación'}]}],
+    profesor:[{g:'Mi panel',items:[{s:'mi-panel',i:'ti-layout-dashboard',l:'Mi panel'},{s:'mis-cursos',i:'ti-school',l:'Mis cursos'},{s:'asistencia-prof',i:'ti-calendar-check',l:'Tomar asistencia'},{s:'mi-liquidacion',i:'ti-cash',l:'Mi liquidación'}]}],
   };
   const nav=navs[role]||navs.alumno;
   let html='';
@@ -511,12 +512,12 @@ function buildNav(role){
 function navigateTo(s){
   currentSec=s;
   document.querySelectorAll('.ni').forEach(n=>n.classList.toggle('active',n.dataset.s===s));
-  const titles={dashboard:'Dashboard',alumnos:'Alumnos',profesores:'Planta docente',solicitudes:'Solicitudes inscripción',inscripciones:'Pagos inscripción',cuotas:'Cuotas',comprobantes:'Comprobantes de pago',cobranza:'Cobranzas y mora',liquidaciones:'Liquidaciones docentes',egresos:'Egresos',certificaciones:'Certificaciones',consultas:'Consultas',precios:'Precios',estados:'Estados','mi-cuenta':'Mi cuenta','mis-cuotas':'Mis cuotas','mis-certs':'Mis certificados','mi-panel':'Mi panel','mis-cursos':'Mis cursos','mi-liquidacion':'Mi liquidación'};
+  const titles={dashboard:'Dashboard',alumnos:'Alumnos',profesores:'Planta docente',solicitudes:'Solicitudes inscripción',inscripciones:'Pagos inscripción',cuotas:'Cuotas',comprobantes:'Comprobantes de pago',cobranza:'Cobranzas y mora',liquidaciones:'Liquidaciones docentes',egresos:'Egresos',certificaciones:'Certificaciones',consultas:'Consultas',precios:'Precios',estados:'Estados',cursos:'Cursos y Talleres',asistencia:'Asistencia','asistencia-prof':'Tomar asistencia',reportes:'Exportar reportes','mi-cuenta':'Mi cuenta','mis-cuotas':'Mis cuotas','mis-certs':'Mis certificados','mi-panel':'Mi panel','mis-cursos':'Mis cursos','mi-liquidacion':'Mi liquidación'};
   document.getElementById('ptitle').textContent=titles[s]||s;
-  const btnS=['alumnos','profesores','inscripciones','cuotas','egresos','certificaciones','consultas','liquidaciones'];
+  const btnS=['alumnos','profesores','inscripciones','cuotas','egresos','certificaciones','consultas','liquidaciones','cursos'];
   const ab=document.getElementById('abtn');
   ab.style.display=(btnS.includes(s)&&currentUser&&currentUser.role==='admin')?'':'none';
-  const lbls={alumnos:'Nueva alumna/o',profesores:'Nuevo/a docente',inscripciones:'Registrar pago',cuotas:'Registrar cuota',egresos:'Nuevo egreso',certificaciones:'Emitir certificado',consultas:'Nueva consulta',liquidaciones:'Nueva liquidación'};
+  const lbls={alumnos:'Nueva alumna/o',profesores:'Nuevo/a docente',inscripciones:'Registrar pago',cuotas:'Registrar cuota',egresos:'Nuevo egreso',certificaciones:'Emitir certificado',consultas:'Nueva consulta',liquidaciones:'Nueva liquidación',cursos:'Nuevo curso / taller'};
   if(lbls[s])document.getElementById('albl').textContent=lbls[s];
   renderSection(s);
 }
@@ -532,7 +533,7 @@ function updateBadges(){
 }
 function renderSection(s){
   const mc=document.getElementById('mc');mc.innerHTML='';
-  const map={dashboard:rDash,alumnos:rAlumnos,profesores:rProfesores,solicitudes:rSolicitudes,inscripciones:rInscripciones,cuotas:rCuotas,comprobantes:rComprobantes,cobranza:rCobranza,liquidaciones:rLiqs,egresos:rEgresos,certificaciones:rCerts,consultas:rConsultas,precios:rPrecios,estados:rEstados,'mi-cuenta':rMiCuenta,'mis-cuotas':rMisCuotas,'mis-certs':rMisCerts,'mi-panel':rMiPanel,'mis-cursos':rMisCursos,'mi-liquidacion':rMiLiq};
+  const map={dashboard:rDash,alumnos:rAlumnos,profesores:rProfesores,solicitudes:rSolicitudes,inscripciones:rInscripciones,cuotas:rCuotas,comprobantes:rComprobantes,cobranza:rCobranza,liquidaciones:rLiqs,egresos:rEgresos,certificaciones:rCerts,consultas:rConsultas,precios:rPrecios,estados:rEstados,cursos:rCursos,asistencia:rAsistencia,'asistencia-prof':rAsistenciaProf,reportes:rReportes,'mi-cuenta':rMiCuenta,'mis-cuotas':rMisCuotas,'mis-certs':rMisCerts,'mi-panel':rMiPanel,'mis-cursos':rMisCursos,'mi-liquidacion':rMiLiq};
   if(map[s])map[s](mc);
   updateBadges();
 }
@@ -674,37 +675,155 @@ function rCuotas(mc){
     '</div>';
 }
 
+// ── HELPERS COBRANZA ──────────────────────────────────────────────────────────
+function getContactos(){return JSON.parse(localStorage.getItem('mosaa_contactos')||'[]');}
+function saveContactos(a){
+  localStorage.setItem('mosaa_contactos',JSON.stringify(a));
+  if(!window.FS)return;
+  setSI('syncing');
+  Promise.all(a.map(item=>window.FS.save('mosaa_contactos',item.id,item))).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+}
+function nivelMora(dias){return dias>30?'rojo':dias>7?'naranja':'amarillo';}
+function nivelLabel(nivel){return{amarillo:'🟡 Amarillo',naranja:'🟠 Naranja',rojo:'🔴 Rojo'}[nivel]||'';}
+function nivelCls(nivel){return{amarillo:'dias-0',naranja:'dias-1',rojo:'dias-2'}[nivel]||'dias-0';}
+function nivelBg(nivel){return{amarillo:'#FFFDE7',naranja:'#FEF5E7',rojo:'#FDEDEC'}[nivel]||'#FFFDE7';}
+function nivelBorder(nivel){return{amarillo:'#F9A825',naranja:'#E67E22',rojo:'#E74C3C'}[nivel]||'#F9A825';}
+
+function buildWspMsg(nombre,nivel,mes,monto,dias){
+  const n=nombre.split(' ')[0];
+  if(nivel==='amarillo')return encodeURIComponent('Hola '+n+', te escribimos desde MOSAA 💛 Queríamos avisarte que tu cuota de '+mes+' está pendiente de pago. Si ya realizaste la transferencia, ignorá este mensaje. Cualquier consulta estamos disponibles. ¡Gracias!');
+  if(nivel==='naranja')return encodeURIComponent('Hola '+n+', te contactamos desde MOSAA. Tu cuota de '+mes+' lleva '+dias+' días sin registrar pago. Te pedimos que te pongas al día a la brevedad para no interrumpir tu cursado. Si tuviste algún inconveniente, escribinos y lo charlamos 🙏');
+  return encodeURIComponent('Hola '+n+', te comunicamos desde MOSAA que registrás una deuda de '+pesos(monto)+' correspondiente a '+mes+'. Es importante que te comuniques con nosotros para regularizar tu situación y poder continuar con tu formación. Gracias.');
+}
+
+function registrarContacto(alumnoId,alumnoNombre,nivel,mes,monto){
+  const contactos=getContactos();
+  contactos.unshift({id:uid(),alumnoId,alumnoNombre,nivel,mes,monto,fecha:hoy(),tipo:'WhatsApp'});
+  saveContactos(contactos);
+  addAct('Contacto enviado — '+alumnoNombre,'Nivel '+nivelLabel(nivel)+' · '+mes,'a');
+  showToast('Contacto registrado en el historial ✓');
+}
+
 function rCobranza(mc){
   const db=loadData();
+  const contactos=getContactos();
   const mora=db.cuotas.filter(c=>c.estado==='Vencida');
   const pend=db.cuotas.filter(c=>c.estado==='Pendiente');
+
+  // agrupar mora por alumno
   const byAl={};
-  mora.forEach(c=>{if(!byAl[c.alumnoId])byAl[c.alumnoId]={nombre:c.alumnoNombre,cuotas:[],total:0};byAl[c.alumnoId].cuotas.push(c);byAl[c.alumnoId].total+=c.monto;});
-  const alumnos=Object.values(byAl).sort((a,b)=>b.total-a.total);
-  function getTel(nombre){const a=db.alumnos.find(x=>x.nombre===nombre);return a&&a.tel?a.tel:'';}
-  function wMsg(nombre,cuotas,total){const lista=cuotas.map(c=>'• '+c.mes+': '+pesos(c.monto)).join('%0A');return 'Hola '+nombre.split(' ')[0]+' 👋 Te contactamos desde *MOSAA Formación Profesional*.%0A%0ATenés las siguientes cuotas vencidas:%0A'+lista+'%0A%0A*Total adeudado: '+pesos(total)+'*%0A%0APor favor regularizá tu situación. ¡Gracias! 🙏';}
+  mora.forEach(c=>{
+    if(!byAl[c.alumnoId])byAl[c.alumnoId]={id:c.alumnoId,nombre:c.alumnoNombre,cuotas:[],total:0};
+    byAl[c.alumnoId].cuotas.push(c);
+    byAl[c.alumnoId].total+=c.monto;
+  });
+  const alumnos=Object.values(byAl).sort((a,b)=>{
+    const da=Math.max(...a.cuotas.map(c=>diasAtraso(c.vence)));
+    const db2=Math.max(...b.cuotas.map(c=>diasAtraso(c.vence)));
+    return db2-da;
+  });
+
+  // separar por nivel
+  const porNivel={amarillo:[],naranja:[],rojo:[]};
+  alumnos.forEach(a=>{
+    const maxD=Math.max(...a.cuotas.map(c=>diasAtraso(c.vence)));
+    a.maxDias=maxD;
+    a.nivel=nivelMora(maxD);
+    porNivel[a.nivel].push(a);
+  });
+
+  const totalMora=mora.reduce((s,c)=>s+c.monto,0);
+
   mc.innerHTML=
+    // ── MÉTRICAS ──
     '<div class="metrics">'+
     '<div class="met"><div class="met-ic ic-c"><i class="ti ti-alert-triangle"></i></div><div class="met-lbl">Alumnos en mora</div><div class="met-val" style="color:var(--c)">'+alumnos.length+'</div></div>'+
-    '<div class="met"><div class="met-ic ic-c"><i class="ti ti-credit-card"></i></div><div class="met-lbl">Cuotas vencidas</div><div class="met-val">'+mora.length+'</div><div class="met-sub sdn">'+pesos(mora.reduce((s,c)=>s+c.monto,0))+'</div></div>'+
+    '<div class="met"><div class="met-ic ic-c"><i class="ti ti-credit-card"></i></div><div class="met-lbl">Total adeudado</div><div class="met-val" style="color:var(--c)">'+pesos(totalMora)+'</div></div>'+
+    '<div class="met" style="background:#FFFDE7;border-color:#F9A825"><div class="met-ic" style="background:#FFF9C4;color:#F9A825"><i class="ti ti-circle-1"></i></div><div class="met-lbl">🟡 Amarillo</div><div class="met-val">'+porNivel.amarillo.length+'</div><div class="met-sub snt">1–7 días</div></div>'+
+    '<div class="met" style="background:#FEF5E7;border-color:#E67E22"><div class="met-ic" style="background:#FDEBD0;color:#E67E22"><i class="ti ti-circle-2"></i></div><div class="met-lbl">🟠 Naranja</div><div class="met-val">'+porNivel.naranja.length+'</div><div class="met-sub snt">8–30 días</div></div>'+
+    '<div class="met" style="background:#FDEDEC;border-color:#E74C3C"><div class="met-ic" style="background:#FADBD8;color:#E74C3C"><i class="ti ti-circle-3"></i></div><div class="met-lbl">🔴 Rojo</div><div class="met-val" style="color:#E74C3C">'+porNivel.rojo.length+'</div><div class="met-sub sdn">+30 días</div></div>'+
     '<div class="met"><div class="met-ic ic-a"><i class="ti ti-clock"></i></div><div class="met-lbl">Próximas a vencer</div><div class="met-val">'+pend.length+'</div><div class="met-sub snt">'+pesos(pend.reduce((s,c)=>s+c.monto,0))+'</div></div>'+
     '</div>'+
-    '<div class="card">'+
-    '<div class="ct"><div class="ct-l"><i class="ti ti-brand-whatsapp" style="color:#25D366"></i>Alumnos en mora — Aviso por WhatsApp</div></div>'+
-    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;background:var(--gy);padding:10px 12px;border-radius:8px;"><i class="ti ti-info-circle"></i> Hacé clic en <b style="color:#25D366">Avisar</b> para abrir WhatsApp con el mensaje prellenado. Solo apretás Enviar.</div>'+
-    (alumnos.length?alumnos.map(a=>{
-      const maxD=Math.max(...a.cuotas.map(c=>diasAtraso(c.vence)));
-      const niv=maxD>30?2:maxD>7?1:0;
-      const tel=getTel(a.nombre);
-      const url=tel?'https://wa.me/549'+tel.replace(/\D/g,'')+'?text='+wMsg(a.nombre,a.cuotas,a.total):'https://wa.me/?text='+wMsg(a.nombre,a.cuotas,a.total);
-      return '<div class="mora-card mora-'+niv+'"><div class="av '+avCls(a.nombre)+'" style="width:36px;height:36px;font-size:12px;">'+initials(a.nombre)+'</div><div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+a.nombre+'</div><div style="font-size:11px;color:var(--mt);margin-top:2px;">'+a.cuotas.length+' cuota'+(a.cuotas.length>1?'s':'')+' vencida'+(a.cuotas.length>1?'s':'')+': '+a.cuotas.map(c=>c.mes).join(', ')+'</div></div><div style="text-align:right;"><div style="font-size:14px;font-weight:700;color:var(--c);margin-bottom:5px;">'+pesos(a.total)+'</div><span class="dias-badge '+(maxD>30?'dias-2':maxD>7?'dias-1':'dias-0')+'">'+maxD+' días</span></div><a href="'+url+'" target="_blank" class="wsp-btn"><i class="ti ti-brand-whatsapp" style="font-size:16px"></i>Avisar</a></div>';
-    }).join(''):'<div style="text-align:center;padding:30px;color:var(--mt)"><i class="ti ti-circle-check" style="font-size:36px;display:block;margin-bottom:8px;color:var(--t)"></i>¡Sin alumnos en mora! 🎉</div>')+
-    '</div>'+
+
+    // ── SEMÁFORO ──
+    (alumnos.length?
+      ['rojo','naranja','amarillo'].map(nivel=>{
+        const lista=porNivel[nivel];
+        if(!lista.length)return '';
+        return '<div class="card" style="border-left:4px solid '+nivelBorder(nivel)+';margin-bottom:14px;">'+
+          '<div class="ct"><div class="ct-l">'+nivelLabel(nivel)+' — '+lista.length+' alumna'+(lista.length>1?'s/os':'/o')+'</div>'+
+          '<span style="font-size:11px;color:var(--mt)">'+(nivel==='amarillo'?'1 a 7 días de atraso':nivel==='naranja'?'8 a 30 días de atraso':'Más de 30 días de atraso')+'</span></div>'+
+          lista.map(a=>{
+            const al=db.alumnos.find(x=>x.id===a.id)||{};
+            const tel=al.tel||'';
+            const ultimoContacto=contactos.find(c=>c.alumnoId===a.id);
+            const mensajePpal=a.cuotas[0];
+            const urlWsp=tel?
+              'https://wa.me/549'+tel.replace(/\D/g,'')+'?text='+buildWspMsg(a.nombre,nivel,mensajePpal.mes,a.total,a.maxDias):
+              'https://wa.me/?text='+buildWspMsg(a.nombre,nivel,mensajePpal.mes,a.total,a.maxDias);
+            return '<div style="background:'+nivelBg(nivel)+';border:1px solid '+nivelBorder(nivel)+'40;border-radius:10px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'+
+              '<div class="av '+avCls(a.nombre)+'" style="width:38px;height:38px;font-size:12px;flex-shrink:0;">'+initials(a.nombre)+'</div>'+
+              '<div style="flex:1;min-width:160px;">'+
+                '<div style="font-weight:600;font-size:13px;">'+a.nombre+'</div>'+
+                '<div style="font-size:11px;color:var(--mt);margin-top:2px;">'+
+                  a.cuotas.map(c=>'<span class="ctag" style="margin-right:3px;font-size:10px;">'+c.mes+'</span>').join('')+
+                '</div>'+
+                (ultimoContacto?'<div style="font-size:10px;color:var(--mt);margin-top:3px;"><i class="ti ti-message-check"></i> Último contacto: '+fmtF(ultimoContacto.fecha)+'</div>':'')+
+              '</div>'+
+              '<div style="text-align:right;margin-right:8px;">'+
+                '<div style="font-size:15px;font-weight:700;color:'+nivelBorder(nivel)+'">'+pesos(a.total)+'</div>'+
+                '<span class="dias-badge '+nivelCls(nivel)+'">'+a.maxDias+' días</span>'+
+              '</div>'+
+              '<div style="display:flex;flex-direction:column;gap:5px;">'+
+                '<a href="'+urlWsp+'" target="_blank" class="wsp-btn" onclick="registrarContacto(\''+a.id+'\',\''+a.nombre+'\',\''+nivel+'\',\''+mensajePpal.mes+'\','+a.total+')">'+
+                  '<i class="ti ti-brand-whatsapp" style="font-size:15px"></i>Enviar mensaje'+
+                '</a>'+
+                '<button class="btn btn-sm" onclick="verHistorialContacto(\''+a.id+'\',\''+a.nombre+'\')">'+
+                  '<i class="ti ti-history"></i>Historial'+
+                '</button>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+        '</div>';
+      }).join(''):
+      '<div class="card"><div style="text-align:center;padding:30px;color:var(--mt)"><i class="ti ti-circle-check" style="font-size:40px;display:block;margin-bottom:10px;color:var(--t)"></i><div style="font-size:15px;font-weight:600;margin-bottom:4px;">¡Sin alumnos en mora!</div><div style="font-size:12px;">Todo al día 🎉</div></div></div>'
+    )+
+
+    // ── PRÓXIMAS A VENCER ──
     (pend.length?
-      '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-clock" style="color:#E67E22"></i>Próximas a vencer</div></div>'+
+      '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-clock" style="color:#E67E22"></i>Próximas a vencer — recordatorio preventivo</div></div>'+
       '<table><thead><tr><th>Alumna/o</th><th>Curso</th><th>Mes</th><th>Vence</th><th>Monto</th><th></th></tr></thead><tbody>'+
-      pend.map(c=>{const al=db.alumnos.find(a=>a.id===c.alumnoId);const tel=al&&al.tel?al.tel:'';const msg='Hola '+c.alumnoNombre.split(' ')[0]+' 👋 Tu cuota de *'+c.mes+'* por *'+pesos(c.monto)+'* vence el '+fmtF(c.vence)+'. No te olvides de abonarla. ¡Gracias! - MOSAA 🙏';const url=tel?'https://wa.me/549'+tel.replace(/\D/g,'')+'?text='+encodeURIComponent(msg):'https://wa.me/?text='+encodeURIComponent(msg);return '<tr><td><div class="rn"><div class="av '+avCls(c.alumnoNombre)+'">'+initials(c.alumnoNombre)+'</div>'+c.alumnoNombre+'</div></td><td><span class="ctag">'+cursNom(c.curso).split(' ')[0]+'</span></td><td>'+c.mes+'</td><td>'+fmtF(c.vence)+'</td><td style="font-weight:600">'+pesos(c.monto)+'</td><td><a href="'+url+'" target="_blank" class="wsp-btn btn-sm"><i class="ti ti-brand-whatsapp"></i>Recordar</a></td></tr>';}).join('')+
+      pend.map(c=>{
+        const al=db.alumnos.find(a=>a.id===c.alumnoId)||{};
+        const tel=al.tel||'';
+        const msg=encodeURIComponent('Hola '+c.alumnoNombre.split(' ')[0]+' 💛 Te recordamos que tu cuota de *'+c.mes+'* por *'+pesos(c.monto)+'* vence el '+fmtF(c.vence)+'. No te olvides de abonarla a tiempo. ¡Gracias! — MOSAA');
+        const url=tel?'https://wa.me/549'+tel.replace(/\D/g,'')+'?text='+msg:'https://wa.me/?text='+msg;
+        return '<tr><td><div class="rn"><div class="av '+avCls(c.alumnoNombre)+'">'+initials(c.alumnoNombre)+'</div>'+c.alumnoNombre+'</div></td>'+
+          '<td><span class="ctag">'+cursNom(c.curso).split(' ')[0]+'</span></td>'+
+          '<td>'+c.mes+'</td><td>'+fmtF(c.vence)+'</td>'+
+          '<td style="font-weight:600;color:var(--td)">'+pesos(c.monto)+'</td>'+
+          '<td><a href="'+url+'" target="_blank" class="wsp-btn" style="font-size:11px;padding:5px 10px;" onclick="registrarContacto(\''+c.alumnoId+'\',\''+c.alumnoNombre+'\',\'amarillo\',\''+c.mes+'\','+c.monto+')">'+
+            '<i class="ti ti-brand-whatsapp"></i>Recordar</a></td></tr>';
+      }).join('')+
       '</tbody></table></div>':'');
+}
+
+function verHistorialContacto(alumnoId,nombre){
+  const contactos=getContactos().filter(c=>c.alumnoId===alumnoId);
+  document.getElementById('dtitle').textContent='Historial de contactos — '+nombre;
+  document.getElementById('dbody').innerHTML=
+    (contactos.length?
+      '<table><thead><tr><th>Fecha</th><th>Nivel</th><th>Cuota</th><th>Monto</th><th>Tipo</th></tr></thead><tbody>'+
+      contactos.map(c=>'<tr>'+
+        '<td>'+fmtF(c.fecha)+'</td>'+
+        '<td>'+nivelLabel(c.nivel)+'</td>'+
+        '<td>'+c.mes+'</td>'+
+        '<td style="font-weight:600;color:var(--td)">'+pesos(c.monto)+'</td>'+
+        '<td><span class="pill pg">'+c.tipo+'</span></td>'+
+      '</tr>').join('')+'</tbody></table>':
+      '<div style="text-align:center;padding:24px;color:var(--mt)">Sin contactos registrados aún.</div>');
+  document.getElementById('dfooter').innerHTML='<button class="btn" onclick="CM(\'detail\')">Cerrar</button>';
+  document.getElementById('modal-detail').classList.add('open');
 }
 
 function liqPagadoPorCurso(liq,cid){
@@ -912,6 +1031,393 @@ function rConsultas(mc){
     '</div>';
 }
 
+// ── ASISTENCIA ────────────────────────────────────────────────────────────────
+function getAsistencia(){return JSON.parse(localStorage.getItem('mosaa_asistencia')||'[]');}
+function saveAsistencia(a){
+  localStorage.setItem('mosaa_asistencia',JSON.stringify(a));
+  if(!window.FS)return;
+  setSI('syncing');
+  Promise.all(a.map(item=>window.FS.save('mosaa_asistencia',item.id,item))).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+}
+
+function rAsistencia(mc){
+  const db=loadData();
+  const asist=getAsistencia();
+  const cursos=getCursos().filter(c=>c.activo!==false);
+  // métricas globales
+  const totalClases=asist.length;
+  const totalPresentes=asist.reduce((s,c)=>s+c.registros.filter(r=>r.estado==='P').length,0);
+  const totalAlumnos=asist.reduce((s,c)=>s+c.registros.length,0);
+  const pctGlobal=totalAlumnos?Math.round(totalPresentes/totalAlumnos*100):0;
+
+  mc.innerHTML=
+    '<div class="metrics">'+
+    '<div class="met"><div class="met-ic ic-t"><i class="ti ti-calendar-check"></i></div><div class="met-lbl">Clases registradas</div><div class="met-val">'+totalClases+'</div></div>'+
+    '<div class="met"><div class="met-ic ic-g"><i class="ti ti-percentage"></i></div><div class="met-lbl">Asistencia global</div><div class="met-val" style="color:'+(pctGlobal>=75?'var(--t)':'var(--c)')+'">'+pctGlobal+'%</div><div class="met-sub snt">'+totalPresentes+' de '+totalAlumnos+' registros</div></div>'+
+    '<div class="met"><div class="met-ic ic-b"><i class="ti ti-users"></i></div><div class="met-lbl">Alumnos activos</div><div class="met-val">'+db.alumnos.filter(a=>a.estado==='Activo').length+'</div></div>'+
+    '</div>'+
+    // selector de curso + fecha + botón nueva clase
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-calendar-plus"></i>Registrar nueva clase</div></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">'+
+    '<div class="fg" style="margin:0"><label style="font-size:11px;font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Curso</label>'+
+    '<select id="as-curso" class="flt" style="width:100%;padding:8px 10px;font-size:13px;">'+
+    '<option value="">— Seleccioná un curso —</option>'+
+    cursos.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+
+    '</select></div>'+
+    '<div class="fg" style="margin:0"><label style="font-size:11px;font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Fecha</label>'+
+    '<input type="date" id="as-fecha" value="'+hoy()+'" style="padding:8px 10px;border:1px solid var(--br);border-radius:8px;font-size:13px;font-family:var(--font);width:100%;"></div>'+
+    '<button class="btn btn-t" onclick="abrirTomaAsistencia()"><i class="ti ti-clipboard-check"></i>Tomar asistencia</button>'+
+    '</div></div>'+
+    // historial por curso
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-history"></i>Historial de clases</div>'+
+    '<select id="as-flt-curso" class="flt" onchange="renderSection(\'asistencia\')"><option value="">Todos los cursos</option>'+cursos.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+'</select>'+
+    '</div>'+
+    rHistorialAsistencia(asist,db)+
+    '</div>'+
+    // resumen por alumno
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-user-check"></i>Resumen por alumno</div>'+
+    '<select id="as-flt2" class="flt" onchange="renderSection(\'asistencia\')"><option value="">Todos los cursos</option>'+cursos.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+'</select>'+
+    '</div>'+
+    rResumenAlumnos(asist,db)+
+    '</div>';
+
+  // restaurar filtros
+  const f1=document.getElementById('as-flt-curso');
+  const f2=document.getElementById('as-flt2');
+  if(window._asFlt1&&f1)f1.value=window._asFlt1;
+  if(window._asFlt2&&f2)f2.value=window._asFlt2;
+}
+
+function rHistorialAsistencia(asist,db){
+  const flt=document.getElementById('as-flt-curso');
+  const filtro=flt?flt.value:(window._asFlt1||'');
+  window._asFlt1=filtro;
+  let lista=filtro?asist.filter(c=>c.cursoId===filtro):asist;
+  lista=[...lista].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(!lista.length)return '<div style="text-align:center;padding:24px;color:var(--mt)"><i class="ti ti-calendar-off" style="font-size:32px;display:block;margin-bottom:8px;color:#BDC3C7"></i>Sin clases registradas aún</div>';
+  return '<table><thead><tr><th>Fecha</th><th>Curso</th><th>Docente</th><th>Presentes</th><th>Ausentes</th><th>%</th><th></th></tr></thead><tbody>'+
+    lista.map(c=>{
+      const pres=c.registros.filter(r=>r.estado==='P').length;
+      const tot=c.registros.length;
+      const pct=tot?Math.round(pres/tot*100):0;
+      return '<tr>'+
+        '<td style="font-weight:500">'+fmtF(c.fecha)+'</td>'+
+        '<td><span class="ctag">'+cursNom(c.cursoId)+'</span></td>'+
+        '<td style="font-size:11.5px;color:var(--mt)">'+(c.docente||'Admin')+'</td>'+
+        '<td style="text-align:center;color:#1E8449;font-weight:600">'+pres+'</td>'+
+        '<td style="text-align:center;color:var(--c);font-weight:600">'+(tot-pres)+'</td>'+
+        '<td><span class="pill '+(pct>=75?'pg':pct>=50?'pa':'pr')+'">'+pct+'%</span></td>'+
+        '<td style="display:flex;gap:4px;">'+
+          '<button class="btn btn-sm" onclick="verDetalleClase(\''+c.id+'\')"><i class="ti ti-eye"></i>Ver</button>'+
+          '<button class="btn btn-sm btn-t" onclick="editarClase(\''+c.id+'\')"><i class="ti ti-edit"></i></button>'+
+          '<button class="btn btn-sm" style="color:var(--c)" onclick="eliminarClase(\''+c.id+'\')"><i class="ti ti-trash"></i></button>'+
+        '</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+
+function rResumenAlumnos(asist,db){
+  const flt=document.getElementById('as-flt2');
+  const filtro=flt?flt.value:(window._asFlt2||'');
+  window._asFlt2=filtro;
+  let alumnos=db.alumnos.filter(a=>a.estado==='Activo');
+  if(filtro)alumnos=alumnos.filter(a=>a.curso===filtro);
+  if(!alumnos.length)return '<div style="text-align:center;padding:24px;color:var(--mt)">Sin alumnos activos</div>';
+  return '<table><thead><tr><th>Alumna/o</th><th>Curso</th><th>Clases</th><th>Presentes</th><th>Ausentes</th><th>Asistencia</th></tr></thead><tbody>'+
+    alumnos.map(a=>{
+      const clasesDelCurso=asist.filter(c=>c.cursoId===a.curso);
+      const totalC=clasesDelCurso.length;
+      const pres=clasesDelCurso.reduce((s,c)=>{const r=c.registros.find(x=>x.alumnoId===a.id);return s+(r&&r.estado==='P'?1:0);},0);
+      const aus=clasesDelCurso.reduce((s,c)=>{const r=c.registros.find(x=>x.alumnoId===a.id);return s+(r&&r.estado==='A'?1:0);},0);
+      const pct=totalC?Math.round(pres/totalC*100):null;
+      const alerta=pct!==null&&pct<75;
+      return '<tr style="'+(alerta?'background:#FFF5F5;':'')+'">'+
+        '<td><div class="rn"><div class="av '+avCls(a.nombre)+'">'+initials(a.nombre)+'</div>'+
+        '<div><div style="font-size:12px;font-weight:500">'+a.nombre+'</div>'+
+        (alerta?'<div style="font-size:10px;color:var(--c);font-weight:600">⚠ Asistencia baja</div>':'')+
+        '</div></div></td>'+
+        '<td><span class="ctag">'+cursNom(a.curso).split(' ')[0]+'</span></td>'+
+        '<td style="text-align:center">'+totalC+'</td>'+
+        '<td style="text-align:center;color:#1E8449;font-weight:600">'+pres+'</td>'+
+        '<td style="text-align:center;color:var(--c);font-weight:600">'+aus+'</td>'+
+        '<td>'+(pct===null?'<span style="color:var(--mt);font-size:11px">Sin clases</span>':
+          '<div style="display:flex;align-items:center;gap:8px;">'+
+          '<div class="prog" style="width:80px"><div class="pf" style="width:'+pct+'%;background:'+(pct>=75?'var(--t)':pct>=50?'#E67E22':'var(--c)')+'"></div></div>'+
+          '<span class="pill '+(pct>=75?'pg':pct>=50?'pa':'pr')+'">'+pct+'%</span>'+
+          '</div>')+
+        '</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+
+function abrirTomaAsistencia(claseId){
+  const cursoId=claseId?null:document.getElementById('as-curso')&&document.getElementById('as-curso').value;
+  const fecha=claseId?null:document.getElementById('as-fecha')&&document.getElementById('as-fecha').value;
+  if(!claseId&&!cursoId){showToast('Seleccioná un curso primero','err');return;}
+  const db=loadData();
+  let registros=[];
+  let cId=cursoId,fId=fecha,docente='Admin';
+  if(claseId){
+    const clase=getAsistencia().find(c=>c.id===claseId);
+    if(!clase)return;
+    cId=clase.cursoId;fId=clase.fecha;docente=clase.docente||'Admin';
+    registros=clase.registros;
+  }
+  const alumnos=db.alumnos.filter(a=>a.curso===cId&&a.estado==='Activo');
+  if(!alumnos.length){showToast('No hay alumnos activos en este curso','err');return;}
+  // Si es nueva, inicializar todos como Presente
+  if(!claseId)registros=alumnos.map(a=>({alumnoId:a.id,alumnoNombre:a.nombre,estado:'P'}));
+  // Merge: asegurar que todos los alumnos activos estén en la lista
+  alumnos.forEach(a=>{if(!registros.find(r=>r.alumnoId===a.id))registros.push({alumnoId:a.id,alumnoNombre:a.nombre,estado:'P'});});
+
+  const filas=alumnos.map(a=>{
+    const reg=registros.find(r=>r.alumnoId===a.id)||{estado:'P'};
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--br);border-radius:8px;margin-bottom:4px;background:'+(reg.estado==='P'?'#F0FBF8':'#FFF5F5')+';" id="row-'+a.id+'">'+
+      '<div class="rn"><div class="av '+avCls(a.nombre)+'">'+initials(a.nombre)+'</div><span style="font-size:13px;font-weight:500">'+a.nombre+'</span></div>'+
+      '<div style="display:flex;gap:6px;">'+
+      '<button onclick="toggleAsist(\''+a.id+'\',\'P\')" id="btn-P-'+a.id+'" class="btn btn-sm '+(reg.estado==='P'?'btn-t':'') +'" style="min-width:80px;"><i class="ti ti-check"></i>Presente</button>'+
+      '<button onclick="toggleAsist(\''+a.id+'\',\'A\')" id="btn-A-'+a.id+'" class="btn btn-sm '+(reg.estado==='A'?'btn-c':'')+'" style="min-width:80px;"><i class="ti ti-x"></i>Ausente</button>'+
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('modal-title').textContent=(claseId?'Editar':'Tomar')+' asistencia — '+cursNom(cId)+' · '+fmtF(fId);
+  document.getElementById('modal-body').innerHTML=
+    '<div style="background:var(--tl);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">'+
+    '<div style="font-size:12px;color:var(--td);font-weight:600;"><i class="ti ti-users"></i> '+alumnos.length+' alumnos · <span id="cnt-pres">'+registros.filter(r=>r.estado==='P').length+'</span> presentes</div>'+
+    '<div style="display:flex;gap:6px;">'+
+    '<button class="btn btn-sm btn-t" onclick="marcarTodos(\'P\')"><i class="ti ti-checks"></i>Todos presentes</button>'+
+    '<button class="btn btn-sm" onclick="marcarTodos(\'A\')"><i class="ti ti-x"></i>Todos ausentes</button>'+
+    '</div></div>'+
+    '<div id="lista-asist">'+filas+'</div>';
+  document.getElementById('modal-footer').innerHTML=
+    '<button class="btn" onclick="CM(\'main\')">Cancelar</button>'+
+    '<button class="btn btn-t" onclick="guardarAsistencia(\''+cId+'\',\''+fId+'\',\''+docente+'\','+(claseId?'\''+claseId+'\'':'null')+')"><i class="ti ti-device-floppy"></i>Guardar asistencia</button>';
+  window._asistTemp={};
+  registros.forEach(r=>{window._asistTemp[r.alumnoId]=r.estado;});
+  document.getElementById('modal-main').classList.add('open');
+}
+
+function toggleAsist(alumnoId,estado){
+  window._asistTemp=window._asistTemp||{};
+  window._asistTemp[alumnoId]=estado;
+  const row=document.getElementById('row-'+alumnoId);
+  const btnP=document.getElementById('btn-P-'+alumnoId);
+  const btnA=document.getElementById('btn-A-'+alumnoId);
+  if(row)row.style.background=estado==='P'?'#F0FBF8':'#FFF5F5';
+  if(btnP){btnP.className='btn btn-sm '+(estado==='P'?'btn-t':'');btnP.style.minWidth='80px';}
+  if(btnA){btnA.className='btn btn-sm '+(estado==='A'?'btn-c':'');btnA.style.minWidth='80px';}
+  const cnt=document.getElementById('cnt-pres');
+  if(cnt)cnt.textContent=Object.values(window._asistTemp||{}).filter(v=>v==='P').length;
+}
+
+function marcarTodos(estado){
+  const temp=window._asistTemp||{};
+  Object.keys(temp).forEach(id=>{temp[id]=estado;toggleAsist(id,estado);});
+}
+
+function guardarAsistencia(cursoId,fecha,docente,claseId){
+  const db=loadData();const asist=getAsistencia();
+  const alumnos=db.alumnos.filter(a=>a.curso===cursoId&&a.estado==='Activo');
+  const registros=alumnos.map(a=>({alumnoId:a.id,alumnoNombre:a.nombre,estado:(window._asistTemp&&window._asistTemp[a.id])||'P'}));
+  const pres=registros.filter(r=>r.estado==='P').length;
+  if(claseId&&claseId!=='null'){
+    const idx=asist.findIndex(c=>c.id===claseId);
+    if(idx>=0){asist[idx].registros=registros;asist[idx].docente=docente;}
+  }else{
+    // verificar que no exista clase para mismo curso+fecha
+    const existe=asist.find(c=>c.cursoId===cursoId&&c.fecha===fecha);
+    if(existe){showToast('Ya existe una clase registrada para esta fecha y curso','err');return;}
+    asist.unshift({id:uid(),cursoId,fecha,docente,registros});
+  }
+  saveAsistencia(asist);
+  addAct('Asistencia — '+cursNom(cursoId),fmtF(fecha)+' · '+pres+'/'+alumnos.length+' presentes','g');
+  showToast('Asistencia guardada ✓');CM('main');renderSection(currentSec==='asistencia-prof'?'asistencia-prof':'asistencia');
+}
+
+function verDetalleClase(id){
+  const clase=getAsistencia().find(c=>c.id===id);if(!clase)return;
+  const pres=clase.registros.filter(r=>r.estado==='P').length;
+  const tot=clase.registros.length;
+  document.getElementById('dtitle').textContent='Asistencia — '+cursNom(clase.cursoId)+' · '+fmtF(clase.fecha);
+  document.getElementById('dbody').innerHTML=
+    '<div style="display:flex;gap:12px;margin-bottom:16px;">'+
+    '<div class="met" style="flex:1;padding:10px 14px;"><div class="met-lbl">Presentes</div><div class="met-val" style="color:var(--t)">'+pres+'</div></div>'+
+    '<div class="met" style="flex:1;padding:10px 14px;"><div class="met-lbl">Ausentes</div><div class="met-val" style="color:var(--c)">'+(tot-pres)+'</div></div>'+
+    '<div class="met" style="flex:1;padding:10px 14px;"><div class="met-lbl">Asistencia</div><div class="met-val" style="color:'+(Math.round(pres/tot*100)>=75?'var(--t)':'var(--c)')+'">'+Math.round(pres/tot*100)+'%</div></div>'+
+    '</div>'+
+    '<table><thead><tr><th>Alumna/o</th><th style="text-align:center">Estado</th></tr></thead><tbody>'+
+    clase.registros.map(r=>'<tr><td><div class="rn"><div class="av '+avCls(r.alumnoNombre)+'">'+initials(r.alumnoNombre)+'</div>'+r.alumnoNombre+'</div></td>'+
+    '<td style="text-align:center"><span class="pill '+(r.estado==='P'?'pg':'pr')+'">'+(r.estado==='P'?'✓ Presente':'✗ Ausente')+'</span></td></tr>').join('')+
+    '</tbody></table>';
+  document.getElementById('dfooter').innerHTML='<button class="btn btn-t btn-sm" onclick="CM(\'detail\');editarClase(\''+id+'\')"><i class="ti ti-edit"></i>Editar</button><button class="btn" onclick="CM(\'detail\')">Cerrar</button>';
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+function editarClase(id){CM('detail');abrirTomaAsistencia(id);}
+
+function eliminarClase(id){
+  if(!confirm('¿Eliminar este registro de asistencia?'))return;
+  const asist=getAsistencia().filter(c=>c.id!==id);
+  saveAsistencia(asist);
+  if(window.FS)window.FS.del('mosaa_asistencia',id).catch(()=>{});
+  showToast('Registro eliminado');renderSection(currentSec);
+}
+
+// Portal docente — tomar asistencia
+function rAsistenciaProf(mc){
+  if(!currentUser||currentUser.role!=='profesor')return;
+  const db=loadData();
+  const p=db.profesores.find(x=>x.id===currentUser.id);if(!p)return;
+  const asist=getAsistencia();
+  const cursos=getCursos().filter(c=>p.cursos.includes(c.id)&&c.activo!==false);
+
+  mc.innerHTML=
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-calendar-plus"></i>Registrar nueva clase</div></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">'+
+    '<div class="fg" style="margin:0"><label style="font-size:11px;font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Curso</label>'+
+    '<select id="asp-curso" class="flt" style="width:100%;padding:8px 10px;font-size:13px;">'+
+    '<option value="">— Seleccioná un curso —</option>'+
+    cursos.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+
+    '</select></div>'+
+    '<div class="fg" style="margin:0"><label style="font-size:11px;font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Fecha</label>'+
+    '<input type="date" id="asp-fecha" value="'+hoy()+'" style="padding:8px 10px;border:1px solid var(--br);border-radius:8px;font-size:13px;font-family:var(--font);width:100%;"></div>'+
+    '<button class="btn btn-t" onclick="abrirTomaAsistenciaProf()"><i class="ti ti-clipboard-check"></i>Tomar asistencia</button>'+
+    '</div></div>'+
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-history"></i>Mis clases registradas</div></div>'+
+    (()=>{
+      const misClases=asist.filter(c=>p.cursos.includes(c.cursoId)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      if(!misClases.length)return '<div style="text-align:center;padding:24px;color:var(--mt)">Todavía no registraste ninguna clase.</div>';
+      return '<table><thead><tr><th>Fecha</th><th>Curso</th><th>Presentes</th><th>%</th><th></th></tr></thead><tbody>'+
+        misClases.map(c=>{
+          const pres=c.registros.filter(r=>r.estado==='P').length;
+          const tot=c.registros.length;
+          const pct=tot?Math.round(pres/tot*100):0;
+          return '<tr><td>'+fmtF(c.fecha)+'</td><td><span class="ctag">'+cursNom(c.cursoId)+'</span></td>'+
+            '<td style="text-align:center;font-weight:600">'+pres+'/'+tot+'</td>'+
+            '<td><span class="pill '+(pct>=75?'pg':pct>=50?'pa':'pr')+'">'+pct+'%</span></td>'+
+            '<td><button class="btn btn-sm" onclick="verDetalleClase(\''+c.id+'\')"><i class="ti ti-eye"></i></button>'+
+            '<button class="btn btn-sm btn-t" onclick="editarClase(\''+c.id+'\')"><i class="ti ti-edit"></i></button></td></tr>';
+        }).join('')+'</tbody></table>';
+    })()+
+    '</div>';
+}
+
+function abrirTomaAsistenciaProf(){
+  const cursoId=document.getElementById('asp-curso')&&document.getElementById('asp-curso').value;
+  const fecha=document.getElementById('asp-fecha')&&document.getElementById('asp-fecha').value;
+  if(!cursoId){showToast('Seleccioná un curso','err');return;}
+  // reutiliza la misma lógica pero con nombre del docente
+  const db=loadData();
+  const p=db.profesores.find(x=>x.id===currentUser.id);
+  const docente=p?p.nombre:'Docente';
+  // temporalmente sobreescribir para pasar el docente
+  window._profDocente=docente;
+  // Usar misma función pero simulando campos del admin
+  document.getElementById('as-curso')||document.body.insertAdjacentHTML('beforeend','<input id="as-curso" style="display:none">');
+  document.getElementById('as-fecha')||document.body.insertAdjacentHTML('beforeend','<input id="as-fecha" style="display:none">');
+  document.getElementById('as-curso').value=cursoId;
+  document.getElementById('as-fecha').value=fecha;
+  abrirTomaAsistencia();
+  // patch: override docente en el botón guardar
+  setTimeout(()=>{
+    const footer=document.getElementById('modal-footer');
+    if(footer)footer.innerHTML='<button class="btn" onclick="CM(\'main\')">Cancelar</button>'+
+      '<button class="btn btn-t" onclick="guardarAsistencia(\''+cursoId+'\',\''+fecha+'\',\''+docente+'\',null)"><i class="ti ti-device-floppy"></i>Guardar asistencia</button>';
+  },50);
+}
+
+// pullFB — agregar asistencia
+function rCursos(mc){
+  const cursos=getCursos();
+  const db=loadData();
+  const tipos=['Curso','Taller','Diplomatura','Seminario','Capacitación'];
+  mc.innerHTML=
+    '<div class="metrics">'+
+    '<div class="met"><div class="met-ic ic-t"><i class="ti ti-school"></i></div><div class="met-lbl">Total oferta</div><div class="met-val">'+cursos.length+'</div><div class="met-sub snt">'+cursos.filter(c=>c.activo!==false).length+' activos</div></div>'+
+    '<div class="met"><div class="met-ic ic-b"><i class="ti ti-users"></i></div><div class="met-lbl">Alumnos activos</div><div class="met-val">'+db.alumnos.filter(a=>a.estado==='Activo').length+'</div><div class="met-sub snt">en todos los cursos</div></div>'+
+    '<div class="met"><div class="met-ic ic-g"><i class="ti ti-armchair"></i></div><div class="met-lbl">Cupo total</div><div class="met-val">'+cursos.reduce((s,c)=>s+(c.cap||0),0)+'</div><div class="met-sub snt">vacantes disponibles: '+(cursos.reduce((s,c)=>s+(c.cap||0),0)-db.alumnos.filter(a=>a.estado==='Activo').length)+'</div></div>'+
+    '</div>'+
+    '<div class="card">'+
+    '<table><thead><tr><th>Curso / Taller</th><th>Tipo</th><th>Cuota</th><th>Cupo</th><th>Alumnos</th><th>Ocupación</th><th>% Docente</th><th>Estado</th><th></th></tr></thead><tbody>'+
+    (cursos.length?cursos.map(c=>{
+      const nal=db.alumnos.filter(a=>a.curso===c.id&&a.estado==='Activo').length;
+      const pct=c.cap?Math.round(nal/c.cap*100):0;
+      const activo=c.activo!==false;
+      return '<tr style="opacity:'+(activo?'1':'.5')+'">'+
+        '<td><div class="rn"><div class="av '+(activo?'at':'ag')+'"><i class="ti ti-school" style="font-size:13px"></i></div>'+
+        '<div><div style="font-size:12.5px;font-weight:600">'+c.nombre+'</div>'+
+        (c.descripcion?'<div style="font-size:10.5px;color:var(--mt)">'+c.descripcion+'</div>':'')+
+        '</div></div></td>'+
+        '<td><span class="pill pb">'+(c.tipo||'Curso')+'</span></td>'+
+        '<td style="font-weight:600;color:var(--td)">'+pesos(c.cuota)+'</td>'+
+        '<td style="text-align:center">'+c.cap+'</td>'+
+        '<td style="text-align:center;font-weight:600">'+nal+'</td>'+
+        '<td style="min-width:80px"><div class="prog"><div class="pf" style="width:'+pct+'%;background:'+(pct>85?'var(--c)':pct>65?'var(--t)':'var(--bm)')+'"></div></div><div style="font-size:10px;color:var(--mt);margin-top:2px">'+pct+'%</div></td>'+
+        '<td style="text-align:center">'+c.pct+'%</td>'+
+        '<td>'+pillE(activo?'Activo':'Inactivo')+'</td>'+
+        '<td style="display:flex;gap:3px;">'+
+          '<button class="btn btn-t btn-sm" onclick="editarCurso(\''+c.id+'\')"><i class="ti ti-edit"></i></button>'+
+          (nal===0?'<button class="btn btn-sm" style="color:var(--c)" onclick="eliminarCurso(\''+c.id+'\')"><i class="ti ti-trash"></i></button>':
+           '<button class="btn btn-sm" onclick="toggleCurso(\''+c.id+'\')" title="'+(activo?'Desactivar':'Activar')+'"><i class="ti ti-'+(activo?'eye-off':'eye')+'"></i></button>')+
+        '</td></tr>';
+    }).join(''):'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--mt)">Sin cursos cargados. ¡Creá el primero!</td></tr>')+
+    '</tbody></table></div>';
+}
+function editarCurso(id){
+  const cursos=getCursos();
+  const c=cursos.find(x=>x.id===id);
+  if(!c)return;
+  const tipos=['Curso','Taller','Diplomatura','Seminario','Capacitación'];
+  document.getElementById('modal-title').textContent='Editar — '+c.nombre;
+  document.getElementById('modal-body').innerHTML=
+    '<div class="fg2">'+
+    '<div class="fg" style="grid-column:1/-1"><label>Nombre del curso / taller *</label><input id="ec-nombre" value="'+c.nombre+'"></div>'+
+    '<div class="fg"><label>Tipo</label><select id="ec-tipo">'+tipos.map(t=>'<option '+(c.tipo===t?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'+
+    '<div class="fg"><label>Cuota mensual ($) *</label><input id="ec-cuota" type="number" value="'+c.cuota+'"></div>'+
+    '<div class="fg"><label>Cupo máximo</label><input id="ec-cap" type="number" value="'+c.cap+'"></div>'+
+    '<div class="fg"><label>% al docente</label><select id="ec-pct"><option value="50" '+(c.pct==50?'selected':'')+'>50%</option><option value="40" '+(c.pct==40?'selected':'')+'>40%</option><option value="45" '+(c.pct==45?'selected':'')+'>45%</option><option value="30" '+(c.pct==30?'selected':'')+'>30%</option><option value="0" '+(c.pct==0?'selected':'')+'>0% (sin docente)</option></select></div>'+
+    '<div class="fg"><label>Estado</label><select id="ec-activo"><option value="1" '+(c.activo!==false?'selected':'')+'>Activo</option><option value="0" '+(c.activo===false?'selected':'')+'>Inactivo</option></select></div>'+
+    '<div class="fg" style="grid-column:1/-1"><label>Descripción breve (opcional)</label><input id="ec-desc" value="'+(c.descripcion||'')+'"></div>'+
+    '</div>';
+  document.getElementById('modal-footer').innerHTML='<button class="btn" onclick="CM(\'main\')">Cancelar</button><button class="btn btn-t" onclick="guardarEdicionCurso(\''+id+'\')"><i class="ti ti-device-floppy"></i>Guardar cambios</button>';
+  document.getElementById('modal-main').classList.add('open');
+}
+function guardarEdicionCurso(id){
+  const cursos=getCursos();
+  const idx=cursos.findIndex(x=>x.id===id);if(idx<0)return;
+  const nombre=document.getElementById('ec-nombre').value.trim();
+  const cuota=parseFloat(document.getElementById('ec-cuota').value)||0;
+  if(!nombre||!cuota){showToast('Nombre y cuota son obligatorios','err');return;}
+  cursos[idx]=Object.assign({},cursos[idx],{
+    nombre,
+    tipo:document.getElementById('ec-tipo').value,
+    cuota,
+    cap:parseInt(document.getElementById('ec-cap').value)||cursos[idx].cap,
+    pct:parseInt(document.getElementById('ec-pct').value)||50,
+    activo:document.getElementById('ec-activo').value==='1',
+    descripcion:document.getElementById('ec-desc').value.trim(),
+  });
+  saveCursos(cursos);
+  if(window.FS)window.FS.save('mosaa_config','precios',{cursos,ins_valor:getInsValor()}).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+  showToast('Curso actualizado ✓');CM('main');renderSection('cursos');
+}
+function toggleCurso(id){
+  const cursos=getCursos();const idx=cursos.findIndex(x=>x.id===id);if(idx<0)return;
+  cursos[idx].activo=cursos[idx].activo===false?true:false;
+  saveCursos(cursos);
+  if(window.FS)window.FS.save('mosaa_config','precios',{cursos,ins_valor:getInsValor()}).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+  showToast(cursos[idx].activo?'Curso activado ✓':'Curso desactivado');renderSection('cursos');
+}
+function eliminarCurso(id){
+  const db=loadData();
+  const tieneAlumnos=db.alumnos.some(a=>a.curso===id);
+  if(tieneAlumnos){showToast('No se puede eliminar: hay alumnos en este curso','err');return;}
+  if(!confirm('¿Eliminar este curso? Esta acción no se puede deshacer.'))return;
+  const cursos=getCursos().filter(c=>c.id!==id);
+  saveCursos(cursos);
+  if(window.FS)window.FS.save('mosaa_config','precios',{cursos,ins_valor:getInsValor()}).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+  showToast('Curso eliminado');renderSection('cursos');
+}
 function rPrecios(mc){
   const cursos=getCursos();
   mc.innerHTML=
@@ -1092,20 +1598,74 @@ function rMiPanel(mc){
   const db=loadData();const p=db.profesores.find(x=>x.id===currentUser.id);if(!p)return;
   const totalAl=p.cursos.reduce((s,cid)=>s+db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length,0);
   const totalLiq=p.cursos.reduce((s,cid)=>{const c=getCursos().find(x=>x.id===cid);if(!c)return s;return s+db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length*Math.round(c.cuota*(p.pct/100));},0);
-  const liqPend=db.liquidaciones.filter(l=>l.profesorId===p.id&&l.estado==='Pendiente');
+  const misLiqs=db.liquidaciones.filter(l=>l.profesorId===p.id);
+  const totalPag=misLiqs.filter(l=>l.estado==='Pagado').reduce((s,l)=>s+l.monto,0);
+  const saldo=Math.max(0,totalLiq-totalPag);
+  const liqPend=misLiqs.filter(l=>l.estado==='Pendiente');
   mc.innerHTML=
     '<div class="portal-hero">'+
-    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;"><div class="pav">'+initials(p.nombre)+'</div><div><div style="font-size:18px;font-weight:700">'+p.nombre+'</div><div style="font-size:12px;opacity:.7">'+p.cursos.length+' cursos · '+p.pct+'% sobre cuota</div></div></div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">'+
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">'+
+    '<div class="pav">'+initials(p.nombre)+'</div>'+
+    '<div><div style="font-size:20px;font-weight:700">'+p.nombre+'</div>'+
+    '<div style="font-size:12px;opacity:.7;margin-top:2px;">'+p.cursos.length+' curso'+(p.cursos.length>1?'s':'')+' · '+p.pct+'% sobre cuota</div>'+
+    '<div style="font-size:11px;opacity:.6;margin-top:2px;">'+p.email+' · '+( p.tel||'Sin teléfono')+'</div></div>'+
+    '<button class="btn btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.3);" onclick="abrirCambioPass()"><i class="ti ti-key"></i>Cambiar clave</button>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">'+
     '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;"><div style="font-size:11px;opacity:.7">Alumnos activos</div><div style="font-size:22px;font-weight:700">'+totalAl+'</div></div>'+
-    '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;"><div style="font-size:11px;opacity:.7">Porcentaje</div><div style="font-size:22px;font-weight:700">'+p.pct+'%</div></div>'+
-    '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;"><div style="font-size:11px;opacity:.7">Liquidación estimada</div><div style="font-size:22px;font-weight:700">'+pesos(totalLiq)+'</div></div>'+
+    '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;"><div style="font-size:11px;opacity:.7">% sobre cuota</div><div style="font-size:22px;font-weight:700">'+p.pct+'%</div></div>'+
+    '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:12px;"><div style="font-size:11px;opacity:.7">A cobrar este mes</div><div style="font-size:22px;font-weight:700">'+pesos(totalLiq)+'</div></div>'+
+    '<div style="background:rgba(255,255,255,'+(saldo===0?'.1':'.2')+');border-radius:8px;padding:12px;border:'+(saldo>0?'1px solid rgba(255,200,0,.4)':'none')+';"><div style="font-size:11px;opacity:.7">Saldo pendiente</div><div style="font-size:22px;font-weight:700;color:'+(saldo===0?'#a8edcc':'#ffd580')+'">'+pesos(saldo)+'</div></div>'+
     '</div></div>'+
-    (liqPend.length?'<div class="card" style="border-left:4px solid #E67E22;"><div class="ct"><div class="ct-l"><i class="ti ti-clock" style="color:#E67E22"></i>Liquidaciones pendientes</div></div>'+liqPend.map(l=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--br);font-size:12px;"><span>'+l.mes+'</span><span style="font-weight:700;color:var(--td)">'+pesos(l.monto)+'</span></div>').join('')+'</div>':'')+
-    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-school"></i>Mis cursos</div></div>'+
-    p.cursos.map(cid=>{const c=getCursos().find(x=>x.id===cid);if(!c)return'';const als=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length;return'<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span class="ctag">'+c.nombre+'</span><span style="font-size:11px;color:var(--mt)">'+als+' alumnos · '+pesos(c.cuota)+' · Mi cobro: '+pesos(Math.round(c.cuota*p.pct/100))+'/alumno</span></div><div class="prog"><div class="pf" style="width:'+Math.round(als/c.cap*100)+'%;background:var(--t)"></div></div></div>';}).join('')+
+    // alerta liquidaciones pendientes
+    (liqPend.length?
+      '<div class="card" style="border-left:4px solid #E67E22;margin-bottom:14px;">'+
+      '<div class="ct"><div class="ct-l"><i class="ti ti-clock" style="color:#E67E22"></i>'+liqPend.length+' liquidación'+(liqPend.length>1?'es':'')+' pendiente'+(liqPend.length>1?'s':'')+' de cobro</div>'+
+      '<button class="btn btn-sm btn-amber" onclick="navigateTo(\'mi-liquidacion\')">Ver detalle →</button></div>'+
+      liqPend.map(l=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--br);font-size:12px;"><span>'+l.mes+'</span><span style="font-weight:700;color:var(--td)">'+pesos(l.monto)+'</span></div>').join('')+
+      '</div>':'')+
+    // cursos rápido
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-school"></i>Mis cursos</div>'+
+    '<button class="btn btn-sm" onclick="navigateTo(\'mis-cursos\')">Ver alumnos →</button></div>'+
+    p.cursos.map(cid=>{
+      const c=getCursos().find(x=>x.id===cid);if(!c)return'';
+      const als=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length;
+      const pct=c.cap?Math.round(als/c.cap*100):0;
+      return'<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;">'+
+        '<span class="ctag">'+c.nombre+'</span>'+
+        '<span style="color:var(--mt)">'+als+' alumnos · Mi cobro: '+pesos(Math.round(c.cuota*p.pct/100))+'/al.</span>'+
+        '</div><div class="prog"><div class="pf" style="width:'+pct+'%;background:var(--t)"></div></div></div>';
+    }).join('')+
     '</div>';
 }
+
+function abrirCambioPass(){
+  document.getElementById('modal-title').textContent='Cambiar contraseña';
+  document.getElementById('modal-body').innerHTML=
+    '<div class="fg"><label>Contraseña actual</label><input type="password" id="cp-actual"></div>'+
+    '<div class="fg"><label>Nueva contraseña</label><input type="password" id="cp-nueva"></div>'+
+    '<div class="fg"><label>Confirmar nueva contraseña</label><input type="password" id="cp-conf"></div>';
+  document.getElementById('modal-footer').innerHTML=
+    '<button class="btn" onclick="CM(\'main\')">Cancelar</button>'+
+    '<button class="btn btn-t" onclick="guardarPass()"><i class="ti ti-check"></i>Guardar</button>';
+  document.getElementById('modal-main').classList.add('open');
+}
+
+function guardarPass(){
+  const actual=document.getElementById('cp-actual').value;
+  const nueva=document.getElementById('cp-nueva').value;
+  const conf=document.getElementById('cp-conf').value;
+  if(!actual||!nueva){showToast('Completá todos los campos','err');return;}
+  if(nueva!==conf){showToast('Las contraseñas no coinciden','err');return;}
+  const db=loadData();
+  const idx=db.profesores.findIndex(p=>p.id===currentUser.id);
+  if(idx<0)return;
+  if(db.profesores[idx].pass!==actual){showToast('La contraseña actual es incorrecta','err');return;}
+  db.profesores[idx].pass=nueva;
+  saveKey('mosaa_profesores',db.profesores);
+  showToast('Contraseña actualizada ✓');CM('main');
+}
+
 function rMisCursos(mc){
   if(!currentUser||currentUser.role!=='profesor')return;
   const db=loadData();const p=db.profesores.find(x=>x.id===currentUser.id);if(!p)return;
@@ -1113,48 +1673,113 @@ function rMisCursos(mc){
   p.cursos.forEach(cid=>{
     const c=getCursos().find(x=>x.id===cid);if(!c)return;
     const als=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo');
-    html+='<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-school"></i>'+c.nombre+'</div><span style="font-size:12px;color:var(--mt)">Cuota: '+pesos(c.cuota)+' · Mi cobro: '+pesos(Math.round(c.cuota*p.pct/100))+'/alumno</span></div>'+
-      (als.length?'<table><thead><tr><th>Alumna/o</th><th>Turno</th><th>Cuota</th></tr></thead><tbody>'+
-      als.map(a=>{const lc=db.cuotas.filter(c=>c.alumnoId===a.id);const ult=lc.length?lc[lc.length-1]:null;return'<tr><td><div class="rn"><div class="av '+avCls(a.nombre)+'">'+initials(a.nombre)+'</div>'+a.nombre+'</div></td><td>'+a.turno+'</td><td>'+pillE(ult?ult.estado:'—')+'</td></tr>';}).join('')+
-      '</tbody></table>':'<div style="padding:10px;font-size:12px;color:var(--mt)">Sin alumnos activos</div>')+
+    html+='<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-school"></i>'+c.nombre+'</div>'+
+      '<span style="font-size:12px;color:var(--mt)">'+als.length+' alumnos · Cuota: '+pesos(c.cuota)+' · Mi cobro: '+pesos(Math.round(c.cuota*p.pct/100))+'/alumno</span></div>'+
+      (als.length?
+        '<table><thead><tr><th>Alumna/o</th><th>DNI</th><th>WhatsApp</th><th>Turno</th><th>Cuota</th><th>Asistencia</th></tr></thead><tbody>'+
+        als.map(a=>{
+          const lc=db.cuotas.filter(q=>q.alumnoId===a.id);
+          const ult=lc.length?lc[lc.length-1]:null;
+          const asist=getAsistencia().filter(x=>x.cursoId===cid);
+          const pres=asist.reduce((s,x)=>{const r=x.registros.find(r=>r.alumnoId===a.id);return s+(r&&r.estado==='P'?1:0);},0);
+          const pctAs=asist.length?Math.round(pres/asist.length*100):null;
+          return'<tr>'+
+            '<td><div class="rn"><div class="av '+avCls(a.nombre)+'">'+initials(a.nombre)+'</div>'+
+            '<div><div style="font-size:12px;font-weight:500">'+a.nombre+'</div>'+
+            '<div style="font-size:10px;color:var(--mt)">'+a.email+'</div></div></div></td>'+
+            '<td style="font-size:11.5px">'+a.dni+'</td>'+
+            '<td>'+(a.tel?'<a href="https://wa.me/549'+a.tel.replace(/\D/g,'')+'" target="_blank" class="btn btn-sm btn-g" style="padding:3px 8px;font-size:11px;"><i class="ti ti-brand-whatsapp"></i>'+a.tel+'</a>':'—')+'</td>'+
+            '<td>'+a.turno+'</td>'+
+            '<td>'+pillE(ult?ult.estado:'—')+'</td>'+
+            '<td>'+(pctAs===null?'<span style="color:var(--mt);font-size:11px">—</span>':
+              '<span class="pill '+(pctAs>=75?'pg':pctAs>=50?'pa':'pr')+'">'+pctAs+'%</span>')+
+            '</td></tr>';
+        }).join('')+'</tbody></table>':
+        '<div style="padding:12px;font-size:12px;color:var(--mt)">Sin alumnos activos</div>')+
       '</div>';
   });
   mc.innerHTML=html||'<div style="text-align:center;padding:30px;color:var(--mt)">Sin cursos asignados</div>';
 }
+
 function rMiLiq(mc){
   if(!currentUser||currentUser.role!=='profesor')return;
   const db=loadData();const p=db.profesores.find(x=>x.id===currentUser.id);if(!p)return;
   let rows=[];
-  p.cursos.forEach(cid=>{const c=getCursos().find(x=>x.id===cid);if(!c)return;const al=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length;const cobro=Math.round(c.cuota*(p.pct/100));rows.push({curso:c,cid,al,cobro,total:cobro*al});});
+  p.cursos.forEach(cid=>{
+    const c=getCursos().find(x=>x.id===cid);if(!c)return;
+    const al=db.alumnos.filter(a=>a.curso===cid&&a.estado==='Activo').length;
+    const cobro=Math.round(c.cuota*(p.pct/100));
+    rows.push({curso:c,cid,al,cobro,total:cobro*al});
+  });
   const totalEst=rows.reduce((s,r)=>s+r.total,0);
   const misLiqs=db.liquidaciones.filter(l=>l.profesorId===p.id);
   const totalPag=misLiqs.filter(l=>l.estado==='Pagado').reduce((s,l)=>s+l.monto,0);
   const saldo=Math.max(0,totalEst-totalPag);
+
   mc.innerHTML=
+    // hero estado de cuenta
     '<div class="card" style="background:linear-gradient(135deg,var(--b),var(--bm));color:white;border:none;margin-bottom:14px;">'+
-    '<div style="font-size:11px;opacity:.7;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Mi liquidación mensual</div>'+
+    '<div style="font-size:11px;opacity:.7;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Mi estado de cuenta</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">'+
-    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">A COBRAR</div><div style="font-size:26px;font-weight:700;">'+pesos(totalEst)+'</div><div style="font-size:11px;opacity:.6;">'+p.pct+'% de cuotas activas</div></div>'+
-    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">PAGADO</div><div style="font-size:26px;font-weight:700;color:#a8edcc;">'+pesos(totalPag)+'</div><div style="font-size:11px;opacity:.6;">'+misLiqs.filter(l=>l.estado==='Pagado').length+' liquidaciones</div></div>'+
-    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">SALDO PENDIENTE</div><div style="font-size:26px;font-weight:700;color:'+(saldo===0?'#a8edcc':'#ffd580')+';">'+pesos(saldo)+'</div><div style="font-size:11px;opacity:.6;">'+(saldo===0?'✓ Al día':'Pendiente de cobro')+'</div></div>'+
+    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">A COBRAR ESTE MES</div><div style="font-size:26px;font-weight:700;">'+pesos(totalEst)+'</div><div style="font-size:11px;opacity:.6;">'+p.pct+'% de cuotas activas</div></div>'+
+    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">TOTAL COBRADO</div><div style="font-size:26px;font-weight:700;color:#a8edcc;">'+pesos(totalPag)+'</div><div style="font-size:11px;opacity:.6;">'+misLiqs.filter(l=>l.estado==='Pagado').length+' liquidaciones pagadas</div></div>'+
+    '<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">SALDO PENDIENTE</div><div style="font-size:26px;font-weight:700;color:'+(saldo===0?'#a8edcc':'#ffd580')+';">'+pesos(saldo)+'</div>'+
+    '<div style="font-size:11px;opacity:.6;">'+(saldo===0?'✓ Todo cobrado':'Pendiente de pago')+'</div></div>'+
     '</div></div>'+
-    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-cash"></i>Detalle por curso</div></div>'+
+
+    // detalle por curso
+    '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-cash"></i>Detalle por curso — mes actual</div></div>'+
     (rows.length?
-      '<table><thead><tr><th>Curso</th><th>Alumnos</th><th>Cuota</th><th>%</th><th>Mi cobro</th><th>Total</th><th style="color:#27ae60;">Pagado</th><th>Pendiente</th></tr></thead><tbody>'+
+      '<table><thead><tr><th>Curso</th><th>Alumnos</th><th>Cuota</th><th>%</th><th>Mi cobro/al.</th><th>Total</th><th style="color:#27ae60">Cobrado</th><th>Pendiente</th></tr></thead><tbody>'+
       rows.map(r=>{
         const pagC=misLiqs.filter(l=>l.estado==='Pagado'&&l.cursos&&l.cursos.includes(r.cid)).reduce((s,l)=>s+liqPagadoPorCurso(l,r.cid),0);
         const pen=Math.max(0,r.total-pagC);
-        return '<tr><td><span class="ctag">'+r.curso.nombre+'</span></td><td style="text-align:center;font-weight:600">'+r.al+'</td><td>'+pesos(r.curso.cuota)+'</td><td>'+pillE(p.pct+'%')+'</td><td>'+pesos(r.cobro)+'</td><td style="font-weight:600;">'+pesos(r.total)+'</td><td style="color:#27ae60;font-weight:600;">'+pesos(Math.round(pagC))+'</td><td style="font-weight:700;color:'+(pen===0?'#27ae60':'var(--td)')+'">'+pesos(pen)+'</td></tr>';
+        return '<tr>'+
+          '<td><span class="ctag">'+r.curso.nombre+'</span></td>'+
+          '<td style="text-align:center;font-weight:600">'+r.al+'</td>'+
+          '<td>'+pesos(r.curso.cuota)+'</td>'+
+          '<td>'+pillE(p.pct+'%')+'</td>'+
+          '<td>'+pesos(r.cobro)+'</td>'+
+          '<td style="font-weight:600">'+pesos(r.total)+'</td>'+
+          '<td style="color:#27ae60;font-weight:600">'+pesos(Math.round(pagC))+'</td>'+
+          '<td style="font-weight:700;color:'+(pen===0?'#27ae60':'var(--td)')+'">'+pesos(pen)+'</td></tr>';
       }).join('')+
-      '<tr style="background:var(--tl)"><td colspan="5" style="text-align:right;font-weight:700;padding:10px;">TOTALES</td><td style="font-weight:700;">'+pesos(totalEst)+'</td><td style="font-weight:700;color:#27ae60;">'+pesos(Math.round(totalPag))+'</td><td style="font-weight:800;color:'+(saldo===0?'#27ae60':'var(--td)')+'">'+pesos(saldo)+'</td></tr>'+
+      '<tr style="background:var(--tl)"><td colspan="5" style="text-align:right;font-weight:700;padding:10px;">TOTALES</td>'+
+      '<td style="font-weight:700">'+pesos(totalEst)+'</td>'+
+      '<td style="font-weight:700;color:#27ae60">'+pesos(Math.round(totalPag))+'</td>'+
+      '<td style="font-weight:800;font-size:14px;color:'+(saldo===0?'#27ae60':'var(--td)')+'">'+pesos(saldo)+'</td></tr>'+
       '</tbody></table>':
       '<div style="text-align:center;padding:20px;color:var(--mt)">Sin cursos asignados</div>')+
     '</div>'+
+
+    // historial con comprobantes
     (misLiqs.length?
       '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-history"></i>Historial de liquidaciones</div></div>'+
       '<table><thead><tr><th>Mes</th><th>Cursos</th><th>Alumnos</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>'+
-      misLiqs.map(l=>'<tr><td>'+l.mes+'</td><td style="font-size:12px;">'+((l.cursos&&l.cursos.length)?l.cursos.map(cid=>{const c2=getCursos().find(x=>x.id===cid);return c2?'<span class="ctag" style="font-size:10px;padding:2px 6px;">'+c2.nombre+'</span>':''}).join(' '):'—')+'</td><td style="text-align:center">'+l.totalAlumnos+'</td><td style="font-weight:600;color:var(--td)">'+pesos(l.monto)+'</td><td>'+pillE(l.estado)+'</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="verRLiq(\''+l.id+'\')"><i class="ti ti-printer"></i></button><button class="btn btn-sm" style="color:#e74c3c" onclick="deleteLiq(\''+l.id+'\')"><i class="ti ti-trash"></i></button></td></tr>').join('')+
+      misLiqs.sort((a,b)=>b.mes.localeCompare(a.mes)).map(l=>
+        '<tr>'+
+        '<td style="font-weight:500">'+l.mes+'</td>'+
+        '<td style="font-size:11px;">'+((l.cursos&&l.cursos.length)?l.cursos.map(cid=>{const c2=getCursos().find(x=>x.id===cid);return c2?'<span class="ctag" style="font-size:10px;padding:2px 6px;margin:1px;">'+c2.nombre+'</span>':''}).join(''):'—')+'</td>'+
+        '<td style="text-align:center">'+l.totalAlumnos+'</td>'+
+        '<td style="font-weight:700;color:var(--td)">'+pesos(l.monto)+'</td>'+
+        '<td>'+pillE(l.estado)+'</td>'+
+        '<td style="display:flex;gap:4px;">'+
+          '<button class="btn btn-sm btn-b" onclick="verRLiqDocente(\''+l.id+'\')"><i class="ti ti-printer"></i>Comprobante</button>'+
+        '</td></tr>'
+      ).join('')+
       '</tbody></table></div>':'');
+}
+
+function verRLiqDocente(id){
+  // igual que verRLiq del admin pero sin botón eliminar
+  verRLiq(id);
+  // reemplazar footer para docente
+  setTimeout(()=>{
+    document.getElementById('dfooter').innerHTML=
+      '<button class="btn" onclick="CM(\'detail\')">Cerrar</button>'+
+      '<button class="btn btn-b" onclick="imprimirR()"><i class="ti ti-printer"></i>Imprimir</button>'+
+      '<button class="btn btn-t" onclick="imprimirR()"><i class="ti ti-download"></i>Guardar PDF</button>';
+  },50);
 }
 
 let ipStep=1,ipData={};
@@ -1163,7 +1788,7 @@ function volverLogin(){document.getElementById('inscripcion-publica').style.disp
 function renderIpStep(){
   for(let i=1;i<=4;i++){const el=document.getElementById('step'+i);el.classList.remove('active','done');if(i<ipStep)el.classList.add('done');else if(i===ipStep)el.classList.add('active');}
   document.getElementById('ip-back').style.display=ipStep>1?'':'none';
-  const co=getCursos().map(c=>'<option value="'+c.id+'">'+c.nombre+' — cuota '+pesos(c.cuota)+'</option>').join('');
+  const co=getCursos().filter(c=>c.activo!==false).map(c=>'<option value="'+c.id+'">'+c.nombre+' — cuota '+pesos(c.cuota)+'</option>').join('');
   const steps={
     1:'<div class="fg2"><div class="fg"><label>Nombre completo *</label><input id="ip-nombre" value="'+(ipData.nombre||'')+'" placeholder="Nombre y apellido"></div><div class="fg"><label>DNI *</label><input id="ip-dni" value="'+(ipData.dni||'')+'" placeholder="38.441.200"></div><div class="fg"><label>Email *</label><input id="ip-email" type="email" value="'+(ipData.email||'')+'" placeholder="correo@mail.com"></div><div class="fg"><label>WhatsApp *</label><input id="ip-tel" value="'+(ipData.tel||'')+'" placeholder="+54 381..."></div></div>',
     2:'<div class="fg"><label>Curso *</label><select id="ip-curso"><option value="">— Seleccioná el curso —</option>'+co+'</select></div><div class="fg"><label>Turno</label><select id="ip-turno"><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div><div style="background:var(--tl);border-radius:10px;padding:14px;margin-top:8px;"><div style="font-size:12px;font-weight:600;color:var(--td);margin-bottom:4px;"><i class="ti ti-info-circle"></i> Inscripción</div><div style="font-size:20px;font-weight:700;color:var(--td)">'+pesos(getInsValor())+'</div><div style="font-size:11px;color:var(--mt);margin-top:4px;">Pago único al comenzar. Adjuntá el comprobante en el siguiente paso.</div></div>',
@@ -1284,8 +1909,8 @@ function imprimirR(){
 }
 
 function openModal(forceType,forceTitle,editId){
-  const types={alumnos:'alumno',profesores:'profesor',inscripciones:'inscripcion',cuotas:'cuota',egresos:'egreso',certificaciones:'cert',consultas:'consulta',liquidaciones:'liquidacion'};
-  const lbls={alumnos:'Nueva alumna/o',profesores:'Nuevo/a docente',inscripciones:'Registrar pago',cuotas:'Registrar cuota',egresos:'Nuevo egreso',certificaciones:'Emitir certificado',consultas:'Nueva consulta',liquidaciones:'Nueva liquidación'};
+  const types={alumnos:'alumno',profesores:'profesor',inscripciones:'inscripcion',cuotas:'cuota',egresos:'egreso',certificaciones:'cert',consultas:'consulta',liquidaciones:'liquidacion',cursos:'curso'};
+  const lbls={alumnos:'Nueva alumna/o',profesores:'Nuevo/a docente',inscripciones:'Registrar pago',cuotas:'Registrar cuota',egresos:'Nuevo egreso',certificaciones:'Emitir certificado',consultas:'Nueva consulta',liquidaciones:'Nueva liquidación',cursos:'Nuevo curso / taller'};
   modalType=forceType||(types[currentSec]||currentSec);
   modalEditId=editId||null;
   document.getElementById('modal-title').textContent=forceTitle||(lbls[currentSec]||'Nuevo');
@@ -1304,6 +1929,7 @@ function buildForm(type){
   if(type==='consulta')return '<div class="fg2"><div class="fg"><label>Nombre *</label><input id="f-nombre"></div><div class="fg"><label>Curso</label><select id="f-curso"><option value="">— General —</option>'+co+'</select></div><div class="fg" style="grid-column:1/-1"><label>Asunto *</label><input id="f-asunto"></div><div class="fg"><label>Prioridad</label><select id="f-prio"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Sin respuesta</option><option>En proceso</option><option>Resuelta</option></select></div></div>';
   if(type==='liquidacion')return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Docente *</label><select id="f-prof" onchange="liqActCursos()">'+db.profesores.map(p=>'<option value="'+p.id+'">'+p.nombre+'</option>').join('')+'</select></div><div class="fg" style="grid-column:1/-1"><label>Cursos a abonar</label><div id="f-cursos-wrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px;background:var(--gy);border-radius:8px;min-height:38px;">'+liqCursosOpts(db.profesores[0]&&db.profesores[0].id)+'</div></div><div class="fg"><label>Mes</label><select id="f-anio" onchange=\"fMesSel(this.value)\">'+aniosOpts()+'</select></div><div class="fg"><label>Mes</label><select id="f-mes">'+mesMesOpts(anioSel)+'</select></div><div class="fg"><label>Monto total ($) *</label><input id="f-monto" type="number"></div><div class="fg"><label>Total alumnos</label><input id="f-alumnos" type="number" value="0"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Pendiente</option><option>Pagado</option></select></div></div>';
   if(type==='inscripcion')return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Alumna/o *</label><select id="f-alumno">'+db.alumnos.map(a=>'<option value="'+a.id+'">'+a.nombre+'</option>').join('')+'</select></div><div class="fg"><label>Fecha</label><input id="f-fecha" type="date" value="'+hoy()+'"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Pagada</option><option>Pendiente</option></select></div></div>';
+  if(type==='curso'){const tipos=['Curso','Taller','Diplomatura','Seminario','Capacitación'];return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Nombre del curso / taller *</label><input id="f-nombre" placeholder="Ej: Maquillaje Artístico"></div><div class="fg"><label>Tipo</label><select id="f-tipo">'+tipos.map(t=>'<option>'+t+'</option>').join('')+'</select></div><div class="fg"><label>Cuota mensual ($) *</label><input id="f-cuota" type="number" placeholder="Ej: 12000"></div><div class="fg"><label>Cupo máximo</label><input id="f-cap" type="number" value="20"></div><div class="fg"><label>% al docente</label><select id="f-pct"><option value="50">50%</option><option value="40">40%</option><option value="45">45%</option><option value="30">30%</option><option value="0">0% (sin docente)</option></select></div><div class="fg"><label>Estado</label><select id="f-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select></div><div class="fg" style="grid-column:1/-1"><label>Descripción breve (opcional)</label><input id="f-desc" placeholder="Ej: Intensivo 4 clases, máx 8 alumnos"></div></div>';}
   return '<p style="color:var(--mt)">Formulario no disponible</p>';
 }
 function saveFromModal(){
@@ -1364,6 +1990,16 @@ function saveFromModal(){
     const aId=g('f-alumno')&&g('f-alumno').value;const al=db.alumnos.find(a=>a.id===aId);if(!al){showToast('Seleccioná alumna/o','err');return;}
     db.inscripciones.push({id:uid(),alumnoId:aId,alumnoNombre:al.nombre,curso:al.curso,monto:getInsValor(),fecha:g('f-fecha').value||hoy(),estado:g('f-estado').value||'Pagada',nro:nroR()});
     saveKey('mosaa_inscripciones',db.inscripciones);showToast('Inscripción registrada ✓');
+  }else if(modalType==='curso'){
+    const nombre=g('f-nombre')&&g('f-nombre').value.trim();
+    const cuota=parseFloat(g('f-cuota')&&g('f-cuota').value)||0;
+    if(!nombre||!cuota){showToast('Nombre y cuota son obligatorios','err');return;}
+    const cursos=getCursos();
+    const nuevoId=nombre.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8)+'_'+uid().slice(0,4);
+    cursos.push({id:nuevoId,nombre,tipo:g('f-tipo').value||'Curso',cuota,cap:parseInt(g('f-cap').value)||20,pct:parseInt(g('f-pct').value)||50,activo:g('f-activo').value!=='0',descripcion:g('f-desc').value.trim()});
+    saveCursos(cursos);
+    if(window.FS)window.FS.save('mosaa_config','precios',{cursos,ins_valor:getInsValor()}).then(()=>setSI('ok')).catch(()=>setSI('offline'));
+    addAct('Nuevo curso — '+nombre,'','t');showToast('Curso creado ✓');
   }
   CM('main');renderSection(currentSec);
 }
@@ -1570,6 +2206,222 @@ function rechazarComp(tipo,id){
 }
 if(window.firebaseReady){pullFB();}
 else{window.addEventListener('firebase-ready',()=>pullFB(),{once:true});}
+
+// ── REPORTES / EXPORTACIÓN EXCEL ─────────────────────────────────────────────
+function rReportes(mc){
+  const db=loadData();
+  const cursos=getCursos();
+  const asist=getAsistencia();
+  const now=new Date();
+  const mesActual=MESES[now.getMonth()]+' '+now.getFullYear();
+
+  mc.innerHTML=
+    '<div style="background:linear-gradient(135deg,var(--b),var(--bm));border-radius:14px;padding:22px;color:white;margin-bottom:18px;">'+
+    '<div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Centro de reportes</div>'+
+    '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">Exportar a Excel</div>'+
+    '<div style="font-size:12px;opacity:.75;">Descargá cualquier reporte en formato .xlsx — listo para abrir en Excel, Google Sheets o cualquier planilla.</div>'+
+    '</div>'+
+
+    // ── ALUMNOS ──
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-users"></i>Listado de alumnos</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Exporta nombre, DNI, email, WhatsApp, curso, turno, estado e inscripción de todos los alumnos o por curso.</div>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
+    '<select id="rpt-curso-al" class="flt"><option value="">Todos los cursos</option>'+cursos.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+'</select>'+
+    '<select id="rpt-estado-al" class="flt"><option value="">Todos los estados</option><option>Activo</option><option>Inactivo</option><option>Deuda</option><option>Nuevo</option></select>'+
+    '<button class="btn btn-t" onclick="exportAlumnos()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div></div>'+
+
+    // ── CUOTAS ──
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-credit-card"></i>Cuotas del mes</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Exporta todas las cuotas con alumno, curso, mes, monto y estado de pago.</div>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
+    '<select id="rpt-mes-cuota" class="flt">'+
+    [...new Set(db.cuotas.map(c=>c.mes))].map(m=>'<option '+(m===mesActual?'selected':'')+'>'+m+'</option>').join('')+
+    '</select>'+
+    '<select id="rpt-estado-cuota" class="flt"><option value="">Todos los estados</option><option>Pagada</option><option>Pendiente</option><option>Vencida</option><option>En revisión</option></select>'+
+    '<button class="btn btn-t" onclick="exportCuotas()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div></div>'+
+
+    // ── COBRANZA / MORA ──
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-alert-triangle"></i>Cobranza y mora</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Alumnos en mora con días de atraso, nivel de semáforo, monto adeudado e historial de contactos.</div>'+
+    '<button class="btn btn-t" onclick="exportCobranza()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div>'+
+
+    // ── LIQUIDACIONES ──
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-cash"></i>Liquidaciones docentes</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Detalle de liquidaciones por docente: mes, cursos, alumnos, monto y estado.</div>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
+    '<select id="rpt-prof" class="flt"><option value="">Todos los docentes</option>'+db.profesores.map(p=>'<option value="'+p.id+'">'+p.nombre+'</option>').join('')+'</select>'+
+    '<button class="btn btn-t" onclick="exportLiquidaciones()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div></div>'+
+
+    // ── ASISTENCIA ──
+    '<div class="card" style="margin-bottom:14px;">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-calendar-check"></i>Asistencia por curso</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Resumen de asistencia por alumno: clases totales, presentes, ausentes y porcentaje.</div>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
+    '<select id="rpt-curso-as" class="flt"><option value="">Todos los cursos</option>'+cursos.filter(c=>c.activo!==false).map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('')+'</select>'+
+    '<button class="btn btn-t" onclick="exportAsistencia()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div></div>'+
+
+    // ── FINANCIERO ──
+    '<div class="card">'+
+    '<div class="ct"><div class="ct-l"><i class="ti ti-chart-pie"></i>Estado financiero general</div></div>'+
+    '<div style="font-size:12px;color:var(--mt);margin-bottom:14px;">Ingresos por inscripciones y cuotas, egresos por categoría y balance neto.</div>'+
+    '<button class="btn btn-t" onclick="exportFinanciero()"><i class="ti ti-file-spreadsheet"></i>Descargar Excel</button>'+
+    '</div>';
+}
+
+// ── Utilidad: descarga XLSX desde array de arrays ──
+function descargarXLSX(sheets,filename){
+  // sheets = [{nombre, datos:[['col1','col2',...], [val,val,...], ...]}]
+  const XLSX=window.XLSX_LIB;
+  if(!XLSX){showToast('Cargando librería, intentá de nuevo en unos segundos...','warn');return;}
+  const wb=XLSX.utils.book_new();
+  sheets.forEach(s=>{
+    const ws=XLSX.utils.aoa_to_sheet(s.datos);
+    // ancho de columnas automático
+    const cols=s.datos[0]||[];
+    ws['!cols']=cols.map((_,i)=>{
+      const max=Math.max(...s.datos.map(r=>String(r[i]||'').length));
+      return{wch:Math.min(Math.max(max,10),50)};
+    });
+    XLSX.utils.book_append_sheet(wb,ws,s.nombre.slice(0,31));
+  });
+  XLSX.writeFile(wb,filename);
+  showToast('Excel descargado ✓');
+}
+
+function exportAlumnos(){
+  const db=loadData();
+  const filtroCurso=document.getElementById('rpt-curso-al')&&document.getElementById('rpt-curso-al').value;
+  const filtroEstado=document.getElementById('rpt-estado-al')&&document.getElementById('rpt-estado-al').value;
+  let lista=db.alumnos;
+  if(filtroCurso)lista=lista.filter(a=>a.curso===filtroCurso);
+  if(filtroEstado)lista=lista.filter(a=>a.estado===filtroEstado);
+  const datos=[['Nombre','DNI','Email','WhatsApp','Curso','Turno','Estado','Fecha ingreso','Inscripción']];
+  lista.forEach(a=>{
+    const ins=db.inscripciones.find(i=>i.alumnoId===a.id);
+    datos.push([a.nombre,a.dni,a.email||'',a.tel||'',cursNom(a.curso),a.turno||'',a.estado,a.fecha||'',ins?ins.estado:'Pendiente']);
+  });
+  const titulo=filtroCurso?cursNom(filtroCurso):'Todos los cursos';
+  descargarXLSX([{nombre:'Alumnos',datos}],'MOSAA_Alumnos_'+titulo.replace(/\s/g,'_')+'.xlsx');
+}
+
+function exportCuotas(){
+  const db=loadData();
+  const filtroMes=document.getElementById('rpt-mes-cuota')&&document.getElementById('rpt-mes-cuota').value;
+  const filtroEstado=document.getElementById('rpt-estado-cuota')&&document.getElementById('rpt-estado-cuota').value;
+  let lista=db.cuotas;
+  if(filtroMes)lista=lista.filter(c=>c.mes===filtroMes);
+  if(filtroEstado)lista=lista.filter(c=>c.estado===filtroEstado);
+  const datos=[['Alumna/o','Curso','Mes','Monto','Estado','Vencimiento','Fecha pago']];
+  lista.forEach(c=>datos.push([c.alumnoNombre,cursNom(c.curso),c.mes,c.monto,c.estado,c.vence||'',c.fecha||'']));
+  const totPag=lista.filter(c=>c.estado==='Pagada').reduce((s,c)=>s+c.monto,0);
+  const totPend=lista.filter(c=>c.estado!=='Pagada').reduce((s,c)=>s+c.monto,0);
+  datos.push([]);
+  datos.push(['','','TOTAL COBRADO','$ '+totPag.toLocaleString('es-AR'),'','','']);
+  datos.push(['','','TOTAL PENDIENTE','$ '+totPend.toLocaleString('es-AR'),'','','']);
+  descargarXLSX([{nombre:'Cuotas',datos}],'MOSAA_Cuotas_'+(filtroMes||'Todas').replace(/\s/g,'_')+'.xlsx');
+}
+
+function exportCobranza(){
+  const db=loadData();
+  const contactos=getContactos();
+  const mora=db.cuotas.filter(c=>c.estado==='Vencida');
+  const byAl={};
+  mora.forEach(c=>{
+    if(!byAl[c.alumnoId])byAl[c.alumnoId]={id:c.alumnoId,nombre:c.alumnoNombre,cuotas:[],total:0};
+    byAl[c.alumnoId].cuotas.push(c);byAl[c.alumnoId].total+=c.monto;
+  });
+  const datos=[['Alumna/o','Curso','WhatsApp','Cuotas vencidas','Días de atraso','Nivel semáforo','Total adeudado','Último contacto']];
+  Object.values(byAl).forEach(a=>{
+    const maxD=Math.max(...a.cuotas.map(c=>diasAtraso(c.vence)));
+    const nivel=nivelMora(maxD);
+    const al=db.alumnos.find(x=>x.id===a.id)||{};
+    const ult=contactos.find(c=>c.alumnoId===a.id);
+    datos.push([a.nombre,cursNom(a.cuotas[0].curso),al.tel||'',a.cuotas.map(c=>c.mes).join(', '),maxD,nivelLabel(nivel),a.total,ult?ult.fecha:'Sin contacto']);
+  });
+  descargarXLSX([{nombre:'Cobranza',datos}],'MOSAA_Cobranza_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+function exportLiquidaciones(){
+  const db=loadData();
+  const filtroProf=document.getElementById('rpt-prof')&&document.getElementById('rpt-prof').value;
+  let lista=db.liquidaciones;
+  if(filtroProf)lista=lista.filter(l=>l.profesorId===filtroProf);
+  const datos=[['Docente','Mes','Cursos','Total alumnos','Monto','Estado','Fecha pago']];
+  lista.forEach(l=>datos.push([l.profesorNombre,l.mes,(l.cursos||[]).map(c=>cursNom(c)).join(', '),l.totalAlumnos,l.monto,l.estado,l.fecha||'']));
+  const totPag=lista.filter(l=>l.estado==='Pagado').reduce((s,l)=>s+l.monto,0);
+  const totPend=lista.filter(l=>l.estado==='Pendiente').reduce((s,l)=>s+l.monto,0);
+  datos.push([]);
+  datos.push(['','TOTAL PAGADO','','',totPag,'','']);
+  datos.push(['','TOTAL PENDIENTE','','',totPend,'','']);
+  descargarXLSX([{nombre:'Liquidaciones',datos}],'MOSAA_Liquidaciones.xlsx');
+}
+
+function exportAsistencia(){
+  const db=loadData();
+  const asist=getAsistencia();
+  const filtroCurso=document.getElementById('rpt-curso-as')&&document.getElementById('rpt-curso-as').value;
+  let alumnos=db.alumnos.filter(a=>a.estado==='Activo');
+  if(filtroCurso)alumnos=alumnos.filter(a=>a.curso===filtroCurso);
+
+  // hoja resumen
+  const resumen=[['Alumna/o','Curso','Total clases','Presentes','Ausentes','% Asistencia']];
+  alumnos.forEach(a=>{
+    const clases=asist.filter(c=>c.cursoId===a.curso);
+    const pres=clases.reduce((s,c)=>{const r=c.registros.find(x=>x.alumnoId===a.id);return s+(r&&r.estado==='P'?1:0);},0);
+    const aus=clases.reduce((s,c)=>{const r=c.registros.find(x=>x.alumnoId===a.id);return s+(r&&r.estado==='A'?1:0);},0);
+    const pct=clases.length?Math.round(pres/clases.length*100):0;
+    resumen.push([a.nombre,cursNom(a.curso),clases.length,pres,aus,pct+'%']);
+  });
+
+  // hoja detalle por clase
+  const detalle=[['Fecha','Curso','Docente','Alumna/o','Estado']];
+  const clasesF=filtroCurso?asist.filter(c=>c.cursoId===filtroCurso):asist;
+  clasesF.sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(c=>{
+    c.registros.forEach(r=>detalle.push([c.fecha,cursNom(c.cursoId),c.docente||'',r.alumnoNombre,r.estado==='P'?'Presente':'Ausente']));
+  });
+
+  descargarXLSX([{nombre:'Resumen',datos:resumen},{nombre:'Detalle por clase',datos:detalle}],'MOSAA_Asistencia'+(filtroCurso?'_'+cursNom(filtroCurso).replace(/\s/g,'_'):'')+'.xlsx');
+}
+
+function exportFinanciero(){
+  const db=loadData();
+  const insVal=getInsValor();
+  // hoja ingresos
+  const ingresos=[['Tipo','Alumna/o','Curso','Mes','Monto','Estado','Fecha']];
+  db.inscripciones.forEach(i=>ingresos.push(['Inscripción',i.alumnoNombre,cursNom(i.curso),'',i.monto,i.estado,i.fecha||'']));
+  db.cuotas.forEach(c=>ingresos.push(['Cuota',c.alumnoNombre,cursNom(c.curso),c.mes,c.monto,c.estado,c.fecha||'']));
+  const totIngCob=(db.inscripciones.filter(i=>i.estado==='Pagada').length*insVal)+(db.cuotas.filter(c=>c.estado==='Pagada').reduce((s,c)=>s+c.monto,0));
+  ingresos.push([]);ingresos.push(['','','','TOTAL COBRADO',totIngCob,'','']);
+
+  // hoja egresos
+  const egresos=[['Concepto','Categoría','Fecha','Monto','Estado']];
+  db.egresos.forEach(e=>egresos.push([e.concepto,e.cat,e.fecha,e.monto,e.estado]));
+  const totEg=db.egresos.filter(e=>e.estado==='Pagado').reduce((s,e)=>s+e.monto,0);
+  egresos.push([]);egresos.push(['','','TOTAL EGRESOS',totEg,'']);
+
+  // hoja balance
+  const balance=[['Concepto','Monto']];
+  const ingInsc=db.inscripciones.filter(i=>i.estado==='Pagada').length*insVal;
+  const ingCuot=db.cuotas.filter(c=>c.estado==='Pagada').reduce((s,c)=>s+c.monto,0);
+  const egDoc=db.egresos.filter(e=>e.cat==='Docentes'&&e.estado==='Pagado').reduce((s,e)=>s+e.monto,0);
+  const egOtros=db.egresos.filter(e=>e.cat!=='Docentes'&&e.estado==='Pagado').reduce((s,e)=>s+e.monto,0);
+  balance.push(['Inscripciones cobradas',ingInsc]);
+  balance.push(['Cuotas cobradas',ingCuot]);
+  balance.push(['Pago a docentes',-egDoc]);
+  balance.push(['Otros egresos',-egOtros]);
+  balance.push(['BALANCE NETO',ingInsc+ingCuot-egDoc-egOtros]);
+
+  descargarXLSX([{nombre:'Ingresos',datos:ingresos},{nombre:'Egresos',datos:egresos},{nombre:'Balance',datos:balance}],'MOSAA_Financiero_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 
 </script>
 </body>
