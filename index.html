@@ -1050,7 +1050,7 @@ function rLiqs(mc){
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
     // filtro por mes
     '<select class="flt" id="flt-liq-mes" onchange="window._liqFltMes=this.value;renderSection(\'liquidaciones\')">'+
-    '<option value="">Todos los meses</option>'+
+    '<option value="">Todos los módulos</option>'+
     mesesUnicos.map(m=>'<option value="'+m+'" '+(m===fltMes?'selected':'')+'>'+m+'</option>').join('')+
     '</select>'+
     // filtro por docente
@@ -1063,7 +1063,7 @@ function rLiqs(mc){
     '</div></div>'+
 
     (liqs.length?
-      '<table><thead><tr><th>Docente</th><th>Mes</th><th>Alumnos</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>'+
+      '<table><thead><tr><th>Docente</th><th>Módulo</th><th>Alumnos</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>'+
       liqs.map(l=>
         '<tr><td><div class="rn"><div class="av '+avCls(l.profesorNombre)+'">'+initials(l.profesorNombre)+'</div>'+l.profesorNombre+'</div></td>'+
         '<td>'+l.mes+'</td>'+
@@ -2198,7 +2198,7 @@ function rMiLiq(mc){
     // historial con comprobantes
     (misLiqs.length?
       '<div class="card"><div class="ct"><div class="ct-l"><i class="ti ti-history"></i>Historial de liquidaciones</div></div>'+
-      '<table><thead><tr><th>Mes</th><th>Cursos</th><th>Alumnos</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>'+
+      '<table><thead><tr><th>Módulo</th><th>Cursos</th><th>Alumnos</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>'+
       misLiqs.sort((a,b)=>b.mes.localeCompare(a.mes)).map(l=>
         '<tr>'+
         '<td style="font-weight:500">'+l.mes+'</td>'+
@@ -2390,7 +2390,20 @@ function buildForm(type){
   if(type==='egreso')return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Concepto *</label><input id="f-concepto"></div><div class="fg"><label>Categoría</label><select id="f-cat"><option>Docentes</option><option>Infraestructura</option><option>Insumos</option><option>Tecnología</option><option>Otros</option></select></div><div class="fg"><label>Monto ($) *</label><input id="f-monto" type="number"></div><div class="fg"><label>Fecha</label><input id="f-fecha" type="date" value="'+hoy()+'"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Pagado</option><option>Pendiente</option></select></div></div>';
   if(type==='cert')return '<div class="fg2"><div class="fg"><label>Alumna/o *</label><input id="f-nombre"></div><div class="fg"><label>Curso *</label><select id="f-curso"><option value="">— Seleccionar —</option>'+co+'</select></div><div class="fg"><label>Fecha emisión</label><input id="f-fecha" type="date" value="'+hoy()+'"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Emitido</option><option>Pendiente</option></select></div></div>';
   if(type==='consulta')return '<div class="fg2"><div class="fg"><label>Nombre *</label><input id="f-nombre"></div><div class="fg"><label>Curso</label><select id="f-curso"><option value="">— General —</option>'+co+'</select></div><div class="fg" style="grid-column:1/-1"><label>Asunto *</label><input id="f-asunto"></div><div class="fg"><label>Prioridad</label><select id="f-prio"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Sin respuesta</option><option>En proceso</option><option>Resuelta</option></select></div></div>';
-  if(type==='liquidacion')return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Docente *</label><select id="f-prof" onchange="liqActCursos()">'+db.profesores.map(p=>'<option value="'+p.id+'">'+p.nombre+'</option>').join('')+'</select></div><div class="fg" style="grid-column:1/-1"><label>Cursos a abonar</label><div id="f-cursos-wrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px;background:var(--gy);border-radius:8px;min-height:38px;">'+liqCursosOpts(db.profesores[0]&&db.profesores[0].id)+'</div></div><div class="fg"><label>Mes</label><select id="f-anio" onchange=\"fMesSel(this.value)\">'+aniosOpts()+'</select></div><div class="fg"><label>Mes</label><select id="f-mes">'+mesMesOpts(anioSel)+'</select></div><div class="fg"><label>Monto total ($) *</label><input id="f-monto" type="number"></div><div class="fg"><label>Total alumnos</label><input id="f-alumnos" type="number" value="0"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Pendiente</option><option>Pagado</option></select></div></div>';
+  if(type==='liquidacion'){
+  const modOpts=(nMod)=>{let o='';for(let i=1;i<=nMod;i++)o+='<option>Módulo '+i+'</option>';return o;};
+  const firstProf=db.profesores[0];
+  const firstCurso=firstProf&&firstProf.cursos.length?getCursos().find(c=>c.id===firstProf.cursos[0]):null;
+  const nMod=firstCurso&&firstCurso.modulos?firstCurso.modulos:4;
+  return '<div class="fg2">'+
+    '<div class="fg" style="grid-column:1/-1"><label>Docente *</label><select id="f-prof" onchange="liqActCursos()">'+db.profesores.map(p=>'<option value="'+p.id+'">'+p.nombre+'</option>').join('')+'</select></div>'+
+    '<div class="fg" style="grid-column:1/-1"><label>Cursos a abonar</label><div id="f-cursos-wrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px;background:var(--gy);border-radius:8px;min-height:38px;">'+liqCursosOpts(firstProf&&firstProf.id)+'</div></div>'+
+    '<div class="fg"><label>Módulo *</label><select id="f-mes" id="f-modulo">'+modOpts(nMod)+'</select></div>'+
+    '<div class="fg"><label>Monto total ($) *</label><input id="f-monto" type="number"></div>'+
+    '<div class="fg"><label>Total alumnos</label><input id="f-alumnos" type="number" value="0"></div>'+
+    '<div class="fg"><label>Estado</label><select id="f-estado"><option>Pendiente</option><option>Pagado</option></select></div>'+
+    '</div>';
+}
   if(type==='inscripcion')return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Alumna/o *</label><select id="f-alumno">'+db.alumnos.map(a=>'<option value="'+a.id+'">'+a.nombre+'</option>').join('')+'</select></div><div class="fg"><label>Fecha</label><input id="f-fecha" type="date" value="'+hoy()+'"></div><div class="fg"><label>Estado</label><select id="f-estado"><option>Pagada</option><option>Pendiente</option></select></div></div>';
   if(type==='curso'){const tipos=['Curso','Taller','Diplomatura','Seminario','Capacitación'];return '<div class="fg2"><div class="fg" style="grid-column:1/-1"><label>Nombre del curso / taller *</label><input id="f-nombre" placeholder="Ej: Maquillaje Artístico"></div><div class="fg"><label>Tipo</label><select id="f-tipo">'+tipos.map(t=>'<option>'+t+'</option>').join('')+'</select></div><div class="fg"><label>Cuota por módulo ($) *</label><input id="f-cuota" type="number" placeholder="Ej: 12000"></div><div class="fg"><label>Cantidad de módulos</label><select id="f-modulos"><option value="2">2 módulos</option><option value="3">3 módulos</option><option value="4" selected>4 módulos</option><option value="6">6 módulos</option><option value="9">9 módulos</option></select></div><div class="fg"><label>Cupo máximo</label><input id="f-cap" type="number" value="20"></div><div class="fg"><label>% al docente</label><select id="f-pct"><option value="50">50%</option><option value="40">40%</option><option value="45">45%</option><option value="30">30%</option><option value="0">0% (sin docente)</option></select></div><div class="fg"><label>Estado</label><select id="f-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select></div><div class="fg" style="grid-column:1/-1"><label>Descripción breve (opcional)</label><input id="f-desc" placeholder="Ej: Intensivo, máx 8 alumnos"></div></div>';}
   return '<p style="color:var(--mt)">Formulario no disponible</p>';
